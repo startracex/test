@@ -1,8 +1,9 @@
 {
   "name": "testrepo",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "",
   "type": "module",
+  "license": "UNLICENSED",
   "main": "js/index.js",
   "scripts": {
     "build": "node js/changelog.js",
