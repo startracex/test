@@ -1,0 +1,58 @@
+name: Pnpm
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20.x"
+          registry-url: "https://registry.npmjs.org"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Test
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Release
+
+        # shogo82148's START
+        #   id: create_release
+        #   uses: shogo82148/actions-create-release@v1
+
+        # - name: Upload Assets
+        #   uses: shogo82148/actions-upload-release-asset@v1
+        #   with:
+        #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+        #     asset_path: build/*
+        # shogo82148's END
+
+        # softprops's START
+        uses: softprops/action-gh-release@v1
+        # if: startsWith(github.ref, 'refs/tags/')
+        # with:
+        #   body_path: CHANGELOG.release.md
+        #   files: build/*
+      # softprops's END

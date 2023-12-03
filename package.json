@@ -1,0 +1,11 @@
+{
+  "name": "testrepo",
+  "version": "0.0.0",
+  "description": "",
+  "type": "module",
+  "main": "js/index.js",
+  "scripts": {
+    "build": "node js/changelog.js",
+    "test": "node js/index.js"
+  }
+}
