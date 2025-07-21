@@ -2,7 +2,7 @@ name: CI
 env:
   DEBUG: napi:*
   APP_NAME: rs-md
-  MACOSX_DEPLOYMENT_TARGET: '10.13'
+  MACOSX_DEPLOYMENT_TARGET: "10.13"
 permissions:
   contents: write
   id-token: write
@@ -11,11 +11,11 @@ on:
     branches:
       - main
     tags-ignore:
-      - '**'
+      - "**"
     paths-ignore:
-      - '**/*.md'
+      - "**/*.md"
       - LICENSE
-      - '**/*.gitignore'
+      - "**/*.gitignore"
       - .editorconfig
       - docs/**
   pull_request: null
@@ -38,7 +38,7 @@ jobs:
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
-            setup:
+            setup: |
               rustup install nightly
               rustup default nightly
             build: pnpm build --target x86_64-unknown-linux-gnu
@@ -52,7 +52,7 @@ jobs:
           - host: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
-            setup:
+            setup: |
               rustup install nightly
               rustup default nightly
             build: pnpm build --target aarch64-unknown-linux-gnu
@@ -110,9 +110,9 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ matrix.settings.docker }}
-          options: '--user 0:0 -v ${{ github.workspace }}:/build -w /build'
+          options: "--user 0:0 -v ${{ github.workspace }}:/build -w /build"
           run: |
-            rustup update nightly
+            rustup install nightly
             rustup default nightly
       # - name: Cache cargo
       #   uses: actions/cache@v4
@@ -150,7 +150,7 @@ jobs:
         if: ${{ matrix.settings.docker }}
         with:
           image: ${{ matrix.settings.docker }}
-          options: '--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build'
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build"
           run: |
             npm install -g corepack
             corepack enable
@@ -179,7 +179,7 @@ jobs:
           RUSTUP_IO_THREADS: 1
         with:
           operating_system: freebsd
-          version: '14.2'
+          version: "14.2"
           memory: 8G
           cpu_count: 3
           environment_variables: DEBUG RUSTUP_IO_THREADS
@@ -224,7 +224,7 @@ jobs:
           - host: windows-latest
             target: x86_64-pc-windows-msvc
         node:
-          - '22'
+          - "22"
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v4
@@ -254,7 +254,7 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - '22'
+          - "22"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -283,7 +283,7 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - '22'
+          - "22"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -316,7 +316,7 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - '22'
+          - "22"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -342,7 +342,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: node:${{ matrix.node }}-slim
-          options: '--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build'
+          options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build"
           run: |
             set -e
             pnpm install
@@ -376,7 +376,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: node:lts-alpine
-          options: '--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build'
+          options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build"
           run: |
             set -e
             pnpm install
@@ -388,7 +388,7 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - '22'
+          - "22"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -413,7 +413,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: node:${{ matrix.node }}-bullseye-slim
-          options: '--platform linux/arm/v7 -v ${{ github.workspace }}:/build -w /build'
+          options: "--platform linux/arm/v7 -v ${{ github.workspace }}:/build -w /build"
           run: |
             set -e
             pnpm install
