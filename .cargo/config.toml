@@ -11,14 +11,8 @@ rustflags = ["-C", "target-feature=-crt-static"]
 [target.i686-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
 
-[unstable]
-const-unstable = true
-
 [build]
-rustflags = ["--cfg=unsafe_unstable"]
+rustflags = ["-Z", "unstable-options", "--cfg", "feature=\"const_option\""]
 
-[target.'cfg(dependency="hstr")']
-rustflags = [
-  "--cfg", "feature=\"const_option_unwrap\"",
-  "--cfg", "feature=\"const_mut_refs\"",
-]
+[toolchain]
+channel = "nightly"
