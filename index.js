@@ -310,8 +310,6 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { transform, transformGfm, transformMdx } = nativeBinding
+const { echo } = nativeBinding
 
-module.exports.transform = transform
-module.exports.transformGfm = transformGfm
-module.exports.transformMdx = transformMdx
+module.exports.echo = echo
