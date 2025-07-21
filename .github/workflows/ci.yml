@@ -94,7 +94,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - name: Install
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         if: ${{ !matrix.settings.docker }}
         with:
           toolchain: nightly
