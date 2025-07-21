@@ -53,6 +53,8 @@ jobs:
             target: aarch64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
             setup: |
+              sudo apt update
+              sudo apt install zig
               rustup install nightly
               rustup default nightly
             build: pnpm build --target aarch64-unknown-linux-gnu
@@ -189,17 +191,17 @@ jobs:
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain nightly
             source "$HOME/.cargo/env"
-            echo "~~~~ rustc --version ~~~~"
-            rustc --version
-            echo "~~~~ node -v ~~~~"
-            node -v
-            echo "~~~~ pnpm --version ~~~~"
-            pnpm -v
-            pwd
-            ls -lah
-            whoami
-            env
-            freebsd-version
+            # echo "~~~~ rustc --version ~~~~"
+            # rustc --version
+            # echo "~~~~ node -v ~~~~"
+            # node -v
+            # echo "~~~~ pnpm --version ~~~~"
+            # pnpm -v
+            # pwd
+            # ls -lah
+            # whoami
+            # env
+            # freebsd-version
             pnpm install
             pnpm build
             rm -rf node_modules
