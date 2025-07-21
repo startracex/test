@@ -99,6 +99,15 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.settings.target }}
+      - name: Update Rust toolchain in Docker
+        if: ${{ matrix.settings.docker }}
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: '--user 0:0 -v ${{ github.workspace }}:/build -w /build'
+          run: |
+            rustup update stable
+            rustup default stable
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -170,7 +179,8 @@ jobs:
           environment_variables: DEBUG RUSTUP_IO_THREADS
           shell: bash
           run: |
-            sudo pkg install -y -f curl node libnghttp2 npm
+            sudo pkg update -f
+            sudo pkg install -y -f curl node libnghttp2 npm libc++ libcxxabi
             sudo npm install -g pnpm
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
