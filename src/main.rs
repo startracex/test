@@ -4,7 +4,7 @@ fn main() -> Result<(), markdown::message::Message> {
   let mut o: Options = Default::default();
   // o.jsx = true;
   o.pragma_frag = Some("xxa".to_string());
-  o.pragma_import_source=Some("xxa".to_string());
+  o.pragma_import_source = Some("xxa".to_string());
   o.jsx_runtime = Some(JsxRuntime::Classic);
   println!(
     "{}",
