@@ -161,7 +161,7 @@ jobs:
           path: ${{ env.APP_NAME }}.*.node
           if-no-files-found: error
   build-freebsd:
-    runs-on: macos-13
+    runs-on: ubuntu-latest
     name: Build FreeBSD
     steps:
       - uses: actions/checkout@v4
@@ -173,14 +173,13 @@ jobs:
           RUSTUP_IO_THREADS: 1
         with:
           operating_system: freebsd
-          version: '13.2'
+          version: '14.2'
           memory: 8G
           cpu_count: 3
           environment_variables: DEBUG RUSTUP_IO_THREADS
           shell: bash
           run: |
-            sudo pkg update -f
-            sudo pkg install -y -f curl node libnghttp2 npm libc++ libcxxabi
+            sudo pkg install -y -f curl node libnghttp2 npm cmake
             sudo npm install -g pnpm
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain nightly
@@ -198,7 +197,6 @@ jobs:
             freebsd-version
             pnpm install
             pnpm build
-            pnpm
             rm -rf node_modules
             rm -rf target
       - name: Upload artifact
