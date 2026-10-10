@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -420,8 +421,6 @@ func (opts Options) getOIDCToken() (string, error) {
 	return "", fmt.Errorf("OIDC token not found")
 }
 
-// checkAudience 只解析 JWT 载荷以读取 aud 声明用于诊断：不校验签名，
-// 也不输出 token 本身。若 token 不是 JWT 或不含 aud，则交由 Fulcio 判定。
 func checkAudience(token, want string) error {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -454,10 +453,8 @@ func checkAudience(token, want string) error {
 	if len(got) == 0 {
 		return nil
 	}
-	for _, a := range got {
-		if a == want {
-			return nil
-		}
+	if slices.Contains(got, want) {
+		return nil
 	}
 	return fmt.Errorf("OIDC token audience is %q, want %q: "+
 		"the token must be requested with audience=sigstore", got, want)
