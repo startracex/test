@@ -7,5 +7,9 @@
     ],
     "exports": {
         ".": "./main.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/startracex/test.git"
     }
 }
