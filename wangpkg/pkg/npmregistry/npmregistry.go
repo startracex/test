@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -94,7 +95,7 @@ func (c *Client) Publish(name string, body []byte) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodPut, reg.JoinPath(name).String(), bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPut, reg.JoinPath(url.PathEscape(name)).String(), bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -113,7 +114,7 @@ func (c *Client) Visibility(name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	req, err := http.NewRequest(http.MethodGet, reg.JoinPath(fmt.Sprintf("/-/package/%s/visibility", name)).String(), nil)
+	req, err := http.NewRequest(http.MethodGet, reg.JoinPath(fmt.Sprintf("/-/package/%s/visibility", url.PathEscape(name))).String(), nil)
 	if err != nil {
 		return false, err
 	}
