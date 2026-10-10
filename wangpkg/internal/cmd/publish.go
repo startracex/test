@@ -39,7 +39,7 @@ var (
 )
 
 var PublishCommand = &cli.Command{
-	Name:      "Publish",
+	Name:      "publish",
 	Usage:     "Publish select packages to registry",
 	ArgsUsage: "[args...]",
 	Flags: []cli.Flag{
