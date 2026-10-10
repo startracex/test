@@ -20,10 +20,8 @@ const (
 )
 
 var (
-	// ErrInvalidLocation is returned when an unknown location is requested.
 	ErrInvalidLocation = errors.New("invalid location")
 
-	// internalKeys are configuration keys that live in the internal npmrc.
 	internalKeys = []string{"store-dir"}
 )
 
@@ -91,10 +89,14 @@ func LoadNpmConfigFile(path string) (*npmini.NpmINI, error) {
 		if os.IsNotExist(err) {
 			return npmini.New(), nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
 	defer func() { _ = file.Close() }()
-	return npmini.Load(file)
+	ini, err := npmini.Load(file)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return ini, nil
 }
 
 // Reload re-reads the applied files and re-merges them, replacing the current
@@ -104,7 +106,7 @@ func (c *NpmConfig) Reload() error {
 	for _, p := range c.paths {
 		f, err := LoadNpmConfigFile(p)
 		if err != nil {
-			return err
+			return fmt.Errorf("reload npm config: %w", err)
 		}
 		out.Merge(f)
 	}

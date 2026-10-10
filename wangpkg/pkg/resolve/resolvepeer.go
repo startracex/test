@@ -202,7 +202,7 @@ func (r *Resolver) resolveWithPeers(opts ResolveOptions) (*PeerResolveResult, er
 
 	resolveResult, err := r.Resolve(opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve %s: %w", opts.Specifier.Alias(), err)
 	}
 
 	result := &PeerResolveResult{

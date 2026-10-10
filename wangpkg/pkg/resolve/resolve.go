@@ -48,6 +48,7 @@ type Resolver struct {
 	NoPeer         bool
 }
 
+// ResolveWorkspace resolves the dependencies of every workspace package.
 func (r *Resolver) ResolveWorkspace() (map[*workspace.Package]map[string]*ResolvedNode, error) {
 	m := concurrent.NewMap[*workspace.Package, map[string]*ResolvedNode](len(r.Workspace.Packages()))
 	eg := concurrent.NewErrGroup()
@@ -55,14 +56,14 @@ func (r *Resolver) ResolveWorkspace() (map[*workspace.Package]map[string]*Resolv
 		eg.Add(func() error {
 			nodes, err := r.ResolvePackage(pkg)
 			if err != nil {
-				return err
+				return fmt.Errorf("resolve package %s: %w", pkg.Name, err)
 			}
 			m.Set(pkg, nodes)
 			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve workspace packages: %w", err)
 	}
 	return m.Map(), nil
 }
@@ -114,7 +115,7 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 						PeerContext: peerContext,
 					}
 					if err := r.expandDeps(opts, resolveResult); err != nil {
-						return nil, err
+						return nil, fmt.Errorf("expand dependencies of %s: %w", resolvedSpecifier, err)
 					}
 					return resolveResult, nil
 				}
@@ -126,14 +127,14 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 
 			resolvedManifest, _, err = r.ResolveRegistrySpecifier(requestSpecifier)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("resolve %s from the registry: %w", requestSpecifier, err)
 			}
 			resolvedSpecifier = requestSpecifier.WithVersion(resolvedManifest.Version)
 
 		case *specifier.LinkSpecifier:
 			resolvedManifest, err = r.resolveFromDir(filepath.Join(r.Workspace.Root().Dir, requestSpecifier.Path))
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("resolve link %s: %w", requestSpecifier.Path, err)
 			}
 			resolvedSpecifier = requestSpecifier
 
@@ -182,13 +183,13 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 			History:         slices.Clone(opts.History),
 			PeerContext:     peerContext,
 		}, resolveResult); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("expand dependencies of %s: %w", opts.Specifier.String(), err)
 		}
 
 		return resolveResult, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("resolve %s, %w", opts.Specifier.String(), err)
+		return nil, fmt.Errorf("resolve %s: %w", opts.Specifier.String(), err)
 	}
 	if r.OnResolve != nil && r.markResolved(result.Specifier.String()) {
 		r.OnResolve()
@@ -235,7 +236,7 @@ func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error 
 			}
 			depSpec, err := specifier.Parse(alias + "@" + resolution.Resolved)
 			if err != nil {
-				return err
+				return fmt.Errorf("parse specifier of %s: %w", alias, err)
 			}
 			depsOpts = append(depsOpts, r.newDepOptions(depSpec, meta, opts, peerContext))
 		}
@@ -256,7 +257,7 @@ func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error 
 
 			depSpec, err := specifier.Parse(fmt.Sprintf("%s@%s", alias, meta.Version))
 			if err != nil {
-				return err
+				return fmt.Errorf("parse specifier of %s: %w", alias, err)
 			}
 			depsOpts = append(depsOpts, r.newDepOptions(depSpec, meta, opts, peerContext))
 		}
@@ -302,7 +303,7 @@ func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error 
 		eg.Add(func() error {
 			depResult, err := r.Resolve(opts)
 			if err != nil {
-				return err
+				return fmt.Errorf("resolve dependency %s: %w", opts.Specifier.Alias(), err)
 			}
 			result.Dependencies.Set(opts.Specifier.Alias(), depResult)
 			return nil

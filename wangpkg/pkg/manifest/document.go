@@ -17,16 +17,17 @@ type Document struct {
 	Time     map[string]time.Time    `json:"time"`
 }
 
+// Resolve returns the manifest of a version or dist-tag.
 func (i *Document) Resolve(versionOrTag string) (*Manifest, error) {
 	if versionOrTag == "" {
 		versionOrTag = "latest"
 	}
 	v, m, err := i.resolve(versionOrTag)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve %q of %q: %w", versionOrTag, i.Name, err)
 	}
 	if m.Version != v {
-		return nil, fmt.Errorf("version mismatch")
+		return nil, fmt.Errorf("version mismatch in %q: the manifest reports %q but %q was resolved", i.Name, m.Version, v)
 	}
 	return m, nil
 }
@@ -57,10 +58,11 @@ func (i *Document) resolve(versionOrTag string) (version string, m *Manifest, er
 	return "", nil, fmt.Errorf("no version matches tag %q in %q package", versionOrTag, i.Name)
 }
 
+// newDocumentRequest builds the request fetching the packument of a package.
 func newDocumentRequest(spec *specifier.RegistrySpecifier, rc *npmini.NpmINI) (*http.Request, error) {
 	u, err := rc.GetRegistry(spec.Namespace())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve registry for %s: %w", spec.Name, err)
 	}
 	return http.NewRequest(http.MethodGet, u.JoinPath(spec.Name).String(), nil)
 }

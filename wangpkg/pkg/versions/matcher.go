@@ -15,12 +15,15 @@ var (
 	ErrInvalidVersionOrConstraint = errors.New("invalid version or constraint")
 )
 
+// Matcher collects version requests and resolves them against a set of
+// available versions. An exact version wins over any constraint.
 type Matcher struct {
 	Version     *semver.Version
 	Constraints map[string]*semver.Constraints
 	mu          sync.RWMutex
 }
 
+// Add records a version or constraint request.
 func (m *Matcher) Add(request string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -30,7 +33,7 @@ func (m *Matcher) Add(request string) error {
 func (m *Matcher) add(request string) error {
 	if v, err := semver.StrictNewVersion(request); err == nil {
 		if m.Version != nil && !m.Version.Equal(v) {
-			return fmt.Errorf("%w: %s and %s", ErrVersionConflict, m.Version, v)
+			return fmt.Errorf("%w: %s conflicts with %s", ErrVersionConflict, m.Version, v)
 		}
 		m.Version = v
 		return nil
@@ -58,6 +61,7 @@ func (m *Matcher) checkConstraints(v *semver.Version) bool {
 	return true
 }
 
+// Check reports whether a version satisfies the matcher.
 func (m *Matcher) Check(v *semver.Version) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -67,12 +71,14 @@ func (m *Matcher) Check(v *semver.Version) bool {
 	return m.checkConstraints(v)
 }
 
+// Resolve picks the version to use: the exact one when set, otherwise the
+// highest available version satisfying every constraint.
 func (m *Matcher) Resolve(v iMap) (*semver.Version, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.Version != nil {
 		if ok := v.Has(m.Version); !ok {
-			return nil, fmt.Errorf("%w: %s", ErrVersionNotMatches, m.Version)
+			return nil, fmt.Errorf("%w: %s is not available", ErrVersionNotMatches, m.Version)
 		}
 		return m.Version, nil
 	}
@@ -80,7 +86,7 @@ func (m *Matcher) Resolve(v iMap) (*semver.Version, error) {
 	var maxVersion *semver.Version
 	for v, err := range v.Iterator() {
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("iterate versions: %w", err)
 		}
 		if m.checkConstraints(v) {
 			if maxVersion == nil || v.GreaterThan(maxVersion) {
@@ -89,11 +95,12 @@ func (m *Matcher) Resolve(v iMap) (*semver.Version, error) {
 		}
 	}
 	if maxVersion == nil {
-		return nil, ErrVersionNotMatches
+		return nil, fmt.Errorf("%w: no available version satisfies the constraints", ErrVersionNotMatches)
 	}
 	return maxVersion, nil
 }
 
+// String renders the exact version, or the list of constraints.
 func (m *Matcher) String() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

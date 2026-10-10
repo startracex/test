@@ -7,6 +7,9 @@ import (
 	"github.com/startracex/wangpkg/pkg/platform"
 )
 
+// matchRestrictions reports whether value satisfies a package.json style
+// restriction list: a bare entry allows it, a "!" prefixed entry denies it, and
+// an empty list allows everything.
 func matchRestrictions(rules []string, value string) bool {
 	if value == "" || len(rules) == 0 {
 		return true
@@ -29,6 +32,7 @@ func matchRestrictions(rules []string, value string) bool {
 	return !allowed
 }
 
+// matchPlatform reports whether a manifest supports the given platform.
 func matchPlatform(m *manifest.Manifest, p platform.Platform) bool {
 	if !matchRestrictions(m.OS, p.V8OS()) {
 		return false

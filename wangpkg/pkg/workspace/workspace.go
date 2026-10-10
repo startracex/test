@@ -17,6 +17,7 @@ import (
 
 var ErrNoWorkspaceRoot = errors.New("no workspace root")
 
+// Package is a workspace member: a manifest plus where it lives on disk.
 type Package struct {
 	*manifest.Manifest
 	Dir    string
@@ -24,6 +25,7 @@ type Package struct {
 	IsRoot bool
 }
 
+// Workspace holds the packages found under a root package.
 type Workspace struct {
 	nameMap  map[string]*Package
 	pathMap  map[string]*Package
@@ -31,6 +33,7 @@ type Workspace struct {
 	packages []*Package
 }
 
+// New returns an empty workspace.
 func New() *Workspace {
 	return &Workspace{
 		nameMap: make(map[string]*Package),
@@ -38,14 +41,18 @@ func New() *Workspace {
 	}
 }
 
+// Packages returns every registered package, root included.
 func (w *Workspace) Packages() []*Package {
 	return w.packages
 }
 
+// Root returns the workspace root package.
 func (w *Workspace) Root() *Package {
 	return w.root
 }
 
+// PathOf returns the package installed at path; path may be absolute or
+// relative to the workspace root.
 func (w *Workspace) PathOf(path string) (*Package, bool) {
 	if filepath.IsAbs(path) {
 		path = filepath.Clean(path)
@@ -57,6 +64,8 @@ func (w *Workspace) PathOf(path string) (*Package, bool) {
 	return pkg, ok
 }
 
+// RecentPathOf returns the package at path, or the closest ancestor package
+// when none matches exactly, falling back to the root.
 func (w *Workspace) RecentPathOf(path string) *Package {
 	pkg, ok := w.PathOf(path)
 	if ok {
@@ -74,11 +83,13 @@ func (w *Workspace) RecentPathOf(path string) *Package {
 	return root
 }
 
+// NameOf returns the package with the given manifest name.
 func (w *Workspace) NameOf(name string) (*Package, bool) {
 	pkg, ok := w.nameMap[name]
 	return pkg, ok
 }
 
+// AddPackage registers a package, making it the root when flagged as such.
 func (w *Workspace) AddPackage(pkg *Package) {
 	if pkg.IsRoot {
 		w.root = pkg
@@ -88,13 +99,15 @@ func (w *Workspace) AddPackage(pkg *Package) {
 	w.nameMap[pkg.Name] = pkg
 }
 
+// FindRoot walks upwards from dir looking for the package that declares the
+// workspaces covering it.
 func (w *Workspace) FindRoot(dir string) error {
 	if w.root != nil {
 		return nil
 	}
 	dir, err := pathutil.Abs(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolve absolute path: %w", err)
 	}
 	var near *Package
 	for dir := range pathutil.UpDir(dir, filepath.Dir) {
@@ -103,7 +116,7 @@ func (w *Workspace) FindRoot(dir string) error {
 			if os.IsNotExist(err) {
 				continue
 			}
-			return err
+			return fmt.Errorf("read manifest in %s: %w", dir, err)
 		}
 		pkg := &Package{
 			Manifest: m,
@@ -128,15 +141,16 @@ func (w *Workspace) FindRoot(dir string) error {
 		}
 	}
 	if near == nil {
-		return ErrNoWorkspaceRoot
+		return fmt.Errorf("%w: no package.json in %s or any parent", ErrNoWorkspaceRoot, dir)
 	}
 	w.AddPackage(near)
 	return nil
 }
 
+// FindPackages discovers the workspace root and then every member package.
 func (w *Workspace) FindPackages(dir string) error {
 	if err := w.FindRoot(dir); err != nil {
-		return err
+		return fmt.Errorf("find workspace root: %w", err)
 	}
 	patterns := w.Root().Workspaces
 	if len(patterns) == 0 {
@@ -151,24 +165,25 @@ func (w *Workspace) FindPackages(dir string) error {
 		CaseInsensitive: osutil.CaseInsensitive(),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("match workspace patterns: %w", err)
 	}
 	for _, dir := range dirs {
 		if err := w.AddDir(dir); err != nil && !os.IsNotExist(err) {
-			return err
+			return fmt.Errorf("add package in %s: %w", dir, err)
 		}
 	}
 	return nil
 }
 
+// AddDir registers the package found in dir, relative to the workspace root.
 func (w *Workspace) AddDir(dir string) error {
 	m, err := manifestFromDir(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("read manifest in %s: %w", dir, err)
 	}
 	rel, err := filepath.Rel(w.Root().Dir, dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("relativize %s against %s: %w", dir, w.Root().Dir, err)
 	}
 	rel = pathutil.PrettyPath(rel)
 	w.AddPackage(&Package{
@@ -180,6 +195,8 @@ func (w *Workspace) AddDir(dir string) error {
 	return nil
 }
 
+// SyncedPackage returns a copy of pkg whose workspace dependencies are pinned
+// to the versions the referenced members actually declare.
 func (w *Workspace) SyncedPackage(pkg *Package) (*Package, error) {
 	p := &pkg.PackageJSON
 	pp := *p
@@ -200,12 +217,12 @@ func (w *Workspace) SyncedPackage(pkg *Package) (*Package, error) {
 	for alias, mode := range pkg.DependenciesMeta(deps.ModeProd | deps.ModeOptional | deps.ModeDev | deps.ModePeer) {
 		spec, err := specifier.Parse(fmt.Sprintf("%s@%s", alias, mode.Version))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parse specifier of %s: %w", alias, err)
 		}
 		switch spec := spec.(type) {
 		case *specifier.WorkspaceSpecifier:
 			if alias != spec.Alias() {
-				return nil, fmt.Errorf("can not convert specifier: different alias %s and %s", alias, spec)
+				return nil, fmt.Errorf("cannot convert specifier of %s: alias does not match %s", alias, spec)
 			}
 			target, ok := w.NameOf(spec.Name)
 			if !ok {
@@ -226,6 +243,7 @@ func (w *Workspace) SyncedPackage(pkg *Package) (*Package, error) {
 	return result, nil
 }
 
+// Graph builds the dependency graph between the given workspace packages.
 func (w *Workspace) Graph(pkgs []*Package) *deps.Graph[*Package] {
 	graph := deps.NewGraph[*Package]()
 	for _, pkg := range pkgs {
@@ -250,6 +268,7 @@ func (w *Workspace) Graph(pkgs []*Package) *deps.Graph[*Package] {
 	return graph
 }
 
+// manifestFromDir reads the package.json of a directory.
 func manifestFromDir(dir string) (*manifest.Manifest, error) {
 	return manifest.ReadFile(filepath.Join(dir, "package.json"))
 }

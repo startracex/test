@@ -4,6 +4,8 @@ import (
 	"strings"
 )
 
+// cutScheme splits a request into its scheme and the rest, returning an empty
+// scheme when the request carries none.
 func cutScheme(s string) (string, string) {
 	for i := range len(s) {
 		c := s[i]
@@ -26,6 +28,8 @@ func cutScheme(s string) (string, string) {
 	return "", s
 }
 
+// splitUserRepoFlag splits "user/repo#flag" into its three parts, returning
+// empties when the request is not exactly one slash.
 func splitUserRepoFlag(s string) (string, string, string) {
 	if s == "" {
 		return "", "", ""
@@ -56,6 +60,8 @@ func scopeName(s string) string {
 	return s[1:slash]
 }
 
+// splitNameVersion splits "name@version" at the last @, returning empties when
+// the name looks like a path rather than a package name.
 func splitNameVersion(s string) (name, version string) {
 	if s == "" {
 		return "", ""
@@ -75,6 +81,8 @@ func splitNameVersion(s string) (name, version string) {
 	return name, version
 }
 
+// splitAlias splits "alias@request", skipping the leading @scope so that a
+// scoped name is not mistaken for an alias separator.
 func splitAlias(s string) (alias, real string) {
 	if s == "" {
 		return "", s

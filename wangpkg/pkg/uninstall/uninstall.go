@@ -1,6 +1,7 @@
 package uninstall
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,8 @@ type Options struct {
 	PackageAliases map[*workspace.Package][]string
 }
 
+// Uninstall removes dependencies from their owning packages, deletes the
+// installed module directories, and rewrites the manifests and the lockfile.
 func Uninstall(opts Options) error {
 	if len(opts.PackageAliases) == 0 {
 		return nil
@@ -67,7 +70,7 @@ func Uninstall(opts Options) error {
 			continue
 		}
 		if err := removeModuleDir(rootPkg.Dir, peerName); err != nil {
-			return err
+			return fmt.Errorf("remove module dir of peer %s: %w", peerName, err)
 		}
 	}
 
@@ -75,42 +78,46 @@ func Uninstall(opts Options) error {
 
 		for _, name := range names {
 			if err := removeModuleDir(pkg.Dir, name); err != nil {
-				return err
+				return fmt.Errorf("remove module dir of %s: %w", name, err)
 			}
 		}
 
 		filePath := pkg.Manifest.FilePath
 		content, err := fmtutil.FormatJSON(filePath, pkg)
 		if err != nil {
-			return err
+			return fmt.Errorf("format manifest %s: %w", filePath, err)
 		}
 
 		if err := os.WriteFile(filePath, content, 0o644); err != nil {
-			return err
+			return fmt.Errorf("write manifest %s: %w", filePath, err)
 		}
 	}
 
 	if lc || len(removes) > 0 || len(changedPackages) > 0 {
 		if err := lockfile.WriteLockfile(filepath.Join(rootPkg.Dir, lockfile.LockfileName), lt); err != nil {
-			return err
+			return fmt.Errorf("write lockfile: %w", err)
 		}
 	}
 	return nil
 }
 
+// removeModuleDir deletes the installed directory of a module, and its scope
+// directory as well once that directory is left empty.
 func removeModuleDir(dir, name string) error {
 	path := filepath.Join(dir, constants.ModulesDirName, name)
 	if err := osutil.RemoveIfExist(path); err != nil {
-		return err
+		return fmt.Errorf("remove %s: %w", path, err)
 	}
 	if strings.Contains(name, "/") {
-		if err := osutil.RemoveDirIfEmpty(filepath.Dir(path)); err != nil {
-			return err
+		scopeDir := filepath.Dir(path)
+		if err := osutil.RemoveDirIfEmpty(scopeDir); err != nil {
+			return fmt.Errorf("remove dir %s: %w", scopeDir, err)
 		}
 	}
 	return nil
 }
 
+// mapDiff returns the entries of sup whose keys are absent from sub.
 func mapDiff[K comparable, T any](sup, sub map[K]T) map[K]T {
 	result := make(map[K]T, len(sup))
 	for key := range sup {
@@ -121,6 +128,7 @@ func mapDiff[K comparable, T any](sup, sub map[K]T) map[K]T {
 	return result
 }
 
+// collectPeers returns every alias resolved as a peer dependency.
 func collectPeers(l *lockfile.Lockfile) map[string]struct{} {
 	result := make(map[string]struct{})
 	for _, pkg := range l.Packages.Iterator() {

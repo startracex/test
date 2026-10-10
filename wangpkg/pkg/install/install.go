@@ -22,6 +22,8 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+// storeName builds the store directory name of a package version; the slash of
+// a scoped name is replaced so it stays a single path segment.
 func storeName(name, version string) string {
 	return strings.ReplaceAll(name, "/", "+") + "@" + version
 }
@@ -55,6 +57,8 @@ type Installer struct {
 	Locked         bool
 }
 
+// InstallWorkspace installs the resolved nodes of every workspace package, then
+// copies files, writes bins and creates the links between them.
 func (i *Installer) InstallWorkspace(n map[*workspace.Package]map[string]*resolve.ResolvedNode) (map[*workspace.Package]map[string]*InstallResult, error) {
 	pkgs := i.Workspace.Packages()
 	m := concurrent.NewMap[*workspace.Package, map[string]*InstallResult](len(pkgs))
@@ -64,7 +68,7 @@ func (i *Installer) InstallWorkspace(n map[*workspace.Package]map[string]*resolv
 		eg.Add(func() error {
 			results, err := i.installNodes(pkg, nodes)
 			if err != nil {
-				return err
+				return fmt.Errorf("install package %s: %w", pkg.Name, err)
 			}
 			m.Set(pkg, results)
 			return nil
@@ -72,25 +76,26 @@ func (i *Installer) InstallWorkspace(n map[*workspace.Package]map[string]*resolv
 	}
 
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("install workspace packages: %w", err)
 	}
 	results := m.Map()
 
 	if err := i.copyFiles(results); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("copy files: %w", err)
 	}
 
 	if err := i.writeBins(results); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("write bins: %w", err)
 	}
 
 	if err := i.createLinks(results); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create links: %w", err)
 	}
 
 	return results, nil
 }
 
+// copyFiles materialises the stored files of every installed package.
 func (i *Installer) copyFiles(results map[*workspace.Package]map[string]*InstallResult) error {
 	eg := &concurrent.ErrGroup{Weighted: i.Weighted}
 	seen := concurrent.NewMap[string, struct{}](0)
@@ -115,14 +120,14 @@ func (i *Installer) copyFiles(results map[*workspace.Package]map[string]*Install
 						continue
 					}
 					if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-						return err
+						return fmt.Errorf("create dir %s: %w", filepath.Dir(dst), err)
 					}
 					src, err := i.Storage.RealPath(file.Integrity)
 					if err != nil {
-						return err
+						return fmt.Errorf("resolve stored path of %s: %w", name, err)
 					}
 					if err := osutil.CopyFile(src, dst); err != nil {
-						return err
+						return fmt.Errorf("copy %s to %s: %w", src, dst, err)
 					}
 				}
 				return nil
@@ -132,6 +137,7 @@ func (i *Installer) copyFiles(results map[*workspace.Package]map[string]*Install
 	return eg.Wait()
 }
 
+// writeBins writes the executable links declared by top level packages.
 func (i *Installer) writeBins(results map[*workspace.Package]map[string]*InstallResult) error {
 	eg := &concurrent.ErrGroup{Weighted: i.Weighted}
 	for pkg, irs := range results {
@@ -151,6 +157,7 @@ func (i *Installer) writeBins(results map[*workspace.Package]map[string]*Install
 	return eg.Wait()
 }
 
+// createLinks creates every symlink collected during installation.
 func (i *Installer) createLinks(results map[*workspace.Package]map[string]*InstallResult) error {
 	eg := &concurrent.ErrGroup{Weighted: i.Weighted}
 	for _, irs := range results {
@@ -158,7 +165,7 @@ func (i *Installer) createLinks(results map[*workspace.Package]map[string]*Insta
 			eg.Add(func() error {
 				for _, request := range ir.Links {
 					if err := osutil.Symlink(request.Source, request.Target); err != nil {
-						return err
+						return fmt.Errorf("link %s to %s: %w", request.Source, request.Target, err)
 					}
 				}
 				return nil
@@ -175,7 +182,7 @@ func (i *Installer) installNodes(pkg *workspace.Package, nodes map[string]*resol
 	for alias, node := range nodes {
 		ir, err := i.installResolvedNode(node, pkg, 0, installed)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("install %s for %s: %w", alias, pkg.Name, err)
 		}
 
 		if ir.Matched {
@@ -203,7 +210,7 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 	mp := matchPlatform(node.Manifest, i.Platform)
 	distPath, fm, link, err := i.prepareArtifact(node, pkg, mp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("prepare artifact of %s: %w", key, err)
 	}
 
 	ir := &InstallResult{
@@ -225,7 +232,7 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 				if peerNode.Resolution.Mode&deps.ModeOptional != 0 {
 					continue
 				}
-				return nil, err
+				return nil, fmt.Errorf("install peer %s of %s: %w", peerName, key, err)
 			}
 
 			linkPath := filepath.Join(distPath, constants.ModulesDirName, peerName)
@@ -271,7 +278,7 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 		eg.Add(func() error {
 			depIR, err := i.installResolvedNode(depNode, pkg, depth+1, installed)
 			if err != nil {
-				return err
+				return fmt.Errorf("install %s of %s: %w", alias, key, err)
 			}
 			if mp && depIR.Matched {
 				depLinks.Append(depLink{result: depIR, alias: alias})
@@ -280,7 +287,7 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("install dependencies of %s: %w", key, err)
 	}
 
 	// Link regular dependencies into this package's node_modules.
@@ -292,6 +299,8 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 	return ir, nil
 }
 
+// prepareArtifact resolves where a node lives on disk, fetching it into the
+// store when it has to be materialised.
 func (i *Installer) prepareArtifact(node *resolve.ResolvedNode, pkg *workspace.Package, shouldStore bool) (string, *storage.FileMap, *Link, error) {
 	switch spec := node.Specifier.(type) {
 	case *specifier.RegistrySpecifier:
@@ -315,12 +324,12 @@ func (i *Installer) prepareArtifact(node *resolve.ResolvedNode, pkg *workspace.P
 			return distPath, nil, nil, nil
 		}
 		if err := i.Weighted.Acquire(context.Background(), 1); err != nil {
-			return "", nil, nil, err
+			return "", nil, nil, fmt.Errorf("acquire install slot: %w", err)
 		}
 		fm, err := i.Storage.FetchArtifact(node.Manifest.Dist)
 		i.Weighted.Release(1)
 		if err != nil {
-			return "", nil, nil, err
+			return "", nil, nil, fmt.Errorf("fetch artifact of %s@%s: %w", pkgName, pkgVersion, err)
 		}
 		return distPath, fm, nil, nil
 
@@ -344,22 +353,23 @@ func (i *Installer) prepareArtifact(node *resolve.ResolvedNode, pkg *workspace.P
 	}
 }
 
+// Save writes the lockfile and the manifests changed by the installation.
 func (i *Installer) Save() error {
 	if i.Locked {
 		return nil
 	}
 	if err := lockfile.WriteLockfile(filepath.Join(i.Workspace.Root().Dir, lockfile.LockfileName), i.Lockfile); err != nil {
-		return err
+		return fmt.Errorf("write lockfile: %w", err)
 	}
 	for pkg := range i.PackageAliases {
 		filePath := pkg.Manifest.FilePath
 		content, err := fmtutil.FormatJSON(filePath, pkg.Manifest)
 		if err != nil {
-			return err
+			return fmt.Errorf("format manifest %s: %w", filePath, err)
 		}
 
 		if err := os.WriteFile(filePath, content, 0o644); err != nil {
-			return err
+			return fmt.Errorf("write manifest %s: %w", filePath, err)
 		}
 	}
 	return nil

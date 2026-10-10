@@ -2,6 +2,7 @@ package pack
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,11 +12,13 @@ import (
 	"github.com/startracex/wangpkg/pkg/pathutil"
 )
 
+// ignoreRule is the ignore file found in one directory.
 type ignoreRule struct {
 	matcher *ignore.GitIgnore
 	dir     string
 }
 
+// CollectOptions controls which entries CollectFiles returns.
 type CollectOptions struct {
 	GlobalIgnore    *ignore.GitIgnore
 	IgnoreFileNames []string
@@ -24,17 +27,19 @@ type CollectOptions struct {
 	FileOnly        bool
 }
 
+// CollectFiles walks rootDir, honouring the ignore files it finds on the way,
+// and returns the entries that survive them.
 func CollectFiles(rootDir string, opts CollectOptions) ([]string, error) {
 	rootDir, err := pathutil.Abs(rootDir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve absolute path: %w", err)
 	}
 
 	var rules []ignoreRule
 
 	if err := filepath.WalkDir(rootDir, func(dir string, d os.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("scan ignore files in %s: %w", dir, err)
 		}
 		name := d.Name()
 		if opts.GlobalIgnore != nil && opts.GlobalIgnore.MatchesPath(name) {
@@ -65,13 +70,13 @@ func CollectFiles(rootDir string, opts CollectOptions) ([]string, error) {
 		}
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("scan ignore files under %s: %w", rootDir, err)
 	}
 
 	var result []string
 	err = filepath.WalkDir(rootDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("collect %s: %w", path, err)
 		}
 		if path == rootDir {
 			return nil
@@ -109,10 +114,15 @@ func CollectFiles(rootDir string, opts CollectOptions) ([]string, error) {
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, fmt.Errorf("collect files under %s: %w", rootDir, err)
+	}
 
-	return result, err
+	return result, nil
 }
 
+// isIgnored reports whether a path is excluded by the ignore rule of any
+// directory above it.
 func isIgnored(path string, rules []ignoreRule) bool {
 	for _, rule := range rules {
 		if !isDescendant(path, rule.dir) {
@@ -126,6 +136,7 @@ func isIgnored(path string, rules []ignoreRule) bool {
 	return false
 }
 
+// isDescendant reports whether path lies inside dir.
 func isDescendant(path, dir string) bool {
 	rel, err := filepath.Rel(dir, path)
 	if err != nil {
@@ -134,6 +145,8 @@ func isDescendant(path, dir string) bool {
 	return !strings.HasPrefix(rel, "..")
 }
 
+// skip tells WalkDir to descend no further into a directory, and to keep going
+// for a file.
 func skip(i interface{ IsDir() bool }) error {
 	if i.IsDir() {
 		return filepath.SkipDir
@@ -141,6 +154,7 @@ func skip(i interface{ IsDir() bool }) error {
 	return nil
 }
 
+// splitLines splits normalized content into lines.
 func splitLines(b []byte) [][]byte {
 	return bytes.Split(fmtutil.NormalizeToLF(b), []byte{'\n'})
 }

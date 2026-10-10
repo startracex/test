@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"io"
 
 	"github.com/dgraph-io/ristretto/v2"
@@ -11,12 +12,14 @@ import (
 	"github.com/startracex/wangpkg/pkg/specifier"
 )
 
+// documentInflight is an in-progress fetch shared by concurrent callers.
 type documentInflight struct {
 	doc  *Document
 	err  error
 	done chan struct{}
 }
 
+// DocumentCache memoises packuments, both decoded and as raw bytes.
 type DocumentCache struct {
 	docCache *ristretto.Cache[string, *Document]
 	rawCache *ristretto.Cache[string, []byte]
@@ -87,12 +90,14 @@ func (c *DocumentCache) FetchDocument(spec *specifier.RegistrySpecifier, rc *npm
 	// Fetch from network
 	req, err := newDocumentRequest(spec, rc)
 	if err != nil {
+		err = fmt.Errorf("build document request for %s: %w", spec.Name, err)
 		inf.err = err
 		c.cancelInflight(inf, key)
 		return nil, err
 	}
 	resp, err := dc.Do(req)
 	if err != nil {
+		err = fmt.Errorf("fetch document of %s: %w", spec.Name, err)
 		inf.err = err
 		c.cancelInflight(inf, key)
 		return nil, err
@@ -100,12 +105,14 @@ func (c *DocumentCache) FetchDocument(spec *specifier.RegistrySpecifier, rc *npm
 	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
+		err = fmt.Errorf("read document of %s: %w", spec.Name, err)
 		inf.err = err
 		c.cancelInflight(inf, key)
 		return nil, err
 	}
 
 	if err = json.Unmarshal(raw, doc); err != nil {
+		err = fmt.Errorf("parse document of %s: %w", spec.Name, err)
 		inf.err = err
 		c.cancelInflight(inf, key)
 		return nil, err

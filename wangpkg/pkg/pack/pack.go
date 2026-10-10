@@ -2,6 +2,7 @@ package pack
 
 import (
 	"archive/tar"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -63,6 +64,7 @@ var DefaultIgnore = []string{
 	`wangpkg.lock`,
 }
 
+// containsFold reports whether t is in s, ignoring case.
 func containsFold(s []string, t string) bool {
 	for _, v := range s {
 		if strings.EqualFold(v, t) {
@@ -72,10 +74,12 @@ func containsFold(s []string, t string) bool {
 	return false
 }
 
+// FindSimilarFiles returns a file in dir whose name matches one of names,
+// ignoring case; extension-less matches are preferred last.
 func FindSimilarFiles(dir string, names []string) (string, error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("read dir %s: %w", dir, err)
 	}
 	found := ""
 	for _, file := range files {
@@ -93,6 +97,8 @@ func FindSimilarFiles(dir string, names []string) (string, error) {
 	return found, nil
 }
 
+// PackName turns a package name into its tarball base name, replacing the
+// scope separator so the name stays a single path segment.
 func PackName(name string) string {
 	reg := &specifier.RegistrySpecifier{Name: name}
 	if scope, base := reg.SplitName(); scope != "" {
@@ -106,6 +112,8 @@ type Options struct {
 	Writer  *tar.Writer
 }
 
+// Init carries the settings shared by every packed package: the tarball prefix
+// and the license injected when a package ships none.
 type Init struct {
 	*workspace.Workspace
 	once        sync.Once
@@ -113,6 +121,7 @@ type Init struct {
 	Prefix      string
 }
 
+// Create writes the tarball of a package into writer.
 func (i *Init) Create(pkg *workspace.Package, writer *tar.Writer) (err error) {
 	prefix := i.Prefix
 	paths, err := IncludeFileMap(pkg)
@@ -121,13 +130,13 @@ func (i *Init) Create(pkg *workspace.Package, writer *tar.Writer) (err error) {
 		name := filepath.ToSlash(filepath.Join(prefix, rel))
 		if abs == pkg.FilePath {
 			if err := syncAndWrite(pkg, abs, name, writer); err != nil {
-				return err
+				return fmt.Errorf("write manifest of %s: %w", pkg.Name, err)
 			}
 			continue
 		}
 
 		if err := copyAndWrite(abs, name, writer); err != nil {
-			return err
+			return fmt.Errorf("write %s: %w", abs, err)
 		}
 		hasLicense = hasLicense || containsFold(AlwaysInclude[1:], pathutil.TrimExt(rel))
 	}
@@ -135,16 +144,23 @@ func (i *Init) Create(pkg *workspace.Package, writer *tar.Writer) (err error) {
 		if filePath := i.LicensePath; filePath != "" {
 			fileName := filepath.Base(filePath)
 			name := filepath.ToSlash(filepath.Join(prefix, fileName))
-			err = copyAndWrite(filePath, name, writer)
+			if err := copyAndWrite(filePath, name, writer); err != nil {
+				return fmt.Errorf("write license %s: %w", filePath, err)
+			}
 		}
 	}
-	return err
+	if err != nil {
+		return fmt.Errorf("collect files of %s: %w", pkg.Name, err)
+	}
+	return nil
 }
 
+// IncludeFileMap returns the files to pack, keyed by their path relative to the
+// package directory.
 func IncludeFileMap(pkg *workspace.Package) (map[string]string, error) {
 	mustIncludes, err := MustIncludeFiles(pkg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("collect required files of %s: %w", pkg.Name, err)
 	}
 	var includes []string
 	if len(pkg.Files) > 0 {
@@ -158,14 +174,14 @@ func IncludeFileMap(pkg *workspace.Package) (map[string]string, error) {
 		})
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("collect files of %s: %w", pkg.Name, err)
 	}
 	paths := append(mustIncludes, includes...)
 	result := make(map[string]string, len(paths))
 	for _, path := range paths {
 		rel, err := filepath.Rel(pkg.Dir, path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("relativize %s against %s: %w", path, pkg.Dir, err)
 		}
 		rel = filepath.ToSlash(rel)
 		result[rel] = path
@@ -173,9 +189,14 @@ func IncludeFileMap(pkg *workspace.Package) (map[string]string, error) {
 	return result, nil
 }
 
+// MustIncludeFiles returns the files npm always ships: the manifest, README and
+// license, every bin, and the main entry.
 func MustIncludeFiles(pkg *workspace.Package) ([]string, error) {
 	result := []string{pkg.FilePath}
 	files, err := os.ReadDir(pkg.Dir)
+	if err != nil {
+		return nil, fmt.Errorf("read dir %s: %w", pkg.Dir, err)
+	}
 	add := func(name string) {
 		result = append(result, filepath.Join(pkg.Dir, name))
 	}
@@ -194,9 +215,10 @@ func MustIncludeFiles(pkg *workspace.Package) ([]string, error) {
 	if main := string(pkg.Main); main != "" {
 		add(main)
 	}
-	return result, err
+	return result, nil
 }
 
+// PatternsIncludeFiles expands the "files" field of a manifest.
 func PatternsIncludeFiles(dir string, files []string) ([]string, error) {
 	patterns := make([]string, 0, len(UsesIgnoreFileNames)+len(AlwaysExclude)+len(files))
 	for _, s := range UsesIgnoreFileNames {
@@ -216,14 +238,16 @@ func PatternsIncludeFiles(dir string, files []string) ([]string, error) {
 	})
 }
 
+// syncAndWrite writes the manifest as it will be published, rather than the
+// file on disk.
 func syncAndWrite(pkg *workspace.Package, path, name string, writer *tar.Writer) error {
 	b, err := fmtutil.FormatJSON(path, pkg.Manifest)
 	if err != nil {
-		return err
+		return fmt.Errorf("format manifest %s: %w", path, err)
 	}
 	i, err := os.Stat(pkg.FilePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("stat %s: %w", pkg.FilePath, err)
 	}
 	size := int64(len(b))
 	fi := info{
@@ -233,39 +257,42 @@ func syncAndWrite(pkg *workspace.Package, path, name string, writer *tar.Writer)
 	}
 	hdr, err := tar.FileInfoHeader(fi, "")
 	if err != nil {
-		return err
+		return fmt.Errorf("build tar header of %s: %w", name, err)
 	}
 	if err := writer.WriteHeader(hdr); err != nil {
-		return err
+		return fmt.Errorf("write tar header of %s: %w", name, err)
 	}
-	_, err = writer.Write(b)
-	return err
+	if _, err := writer.Write(b); err != nil {
+		return fmt.Errorf("write %s: %w", name, err)
+	}
+	return nil
 }
 
+// copyAndWrite copies a file into the tarball.
 func copyAndWrite(path, name string, writer *tar.Writer) error {
 	info, err := os.Stat(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("stat %s: %w", path, err)
 	}
 
 	header, err := tar.FileInfoHeader(info, "")
 	if err != nil {
-		return err
+		return fmt.Errorf("build tar header of %s: %w", name, err)
 	}
 	header.Name = name
 
 	if err := writer.WriteHeader(header); err != nil {
-		return err
+		return fmt.Errorf("write tar header of %s: %w", name, err)
 	}
 
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("open %s: %w", path, err)
 	}
 	defer func() { _ = file.Close() }()
 
 	if _, err = io.Copy(writer, file); err != nil {
-		return err
+		return fmt.Errorf("write %s: %w", name, err)
 	}
-	return err
+	return nil
 }

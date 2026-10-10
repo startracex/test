@@ -74,7 +74,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 				depSpec, err = specifier.Parse(fmt.Sprintf("%s@%s", alias, meta.Version))
 			}
 			if err != nil {
-				return err
+				return fmt.Errorf("parse specifier of %s: %w", alias, err)
 			}
 
 			if opts.LockfilePackage != nil {
@@ -103,7 +103,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 	}
 
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve root dependencies: %w", err)
 	}
 
 	// Build unified PeerContext from all resolved root dependencies.
@@ -136,7 +136,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 	}
 
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build dependency trees: %w", err)
 	}
 
 	return trees.Map(), nil
@@ -154,7 +154,7 @@ func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 
 	prr, err := r.resolveWithPeers(opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve %s: %w", opts.Specifier.Alias(), err)
 	}
 
 	node := &ResolvedNode{
@@ -238,7 +238,7 @@ func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve dependencies of %s: %w", opts.Specifier.Alias(), err)
 	}
 	maps.Insert(node.Dependencies, deps.Iterator())
 

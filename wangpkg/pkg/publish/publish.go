@@ -123,6 +123,10 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 				"predicateType":  slsaV1,
 			},
 		}
+		// The provenance bundle is uploaded as the raw JSON string, not base64:
+		// npm only base64-encodes the tarball (libnpmpublish uses
+		// data: serializedBundle). Sending base64 makes the registry fail to
+		// parse the bundle and answer with a server error.
 		attachments[provenanceBundleName] = Attachment{
 			ContentType: sigstoreContentType,
 			Data:        string(bunJSON),
@@ -130,6 +134,9 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 		}
 	}
 
+	// The version document's _id is name@version, but the top-level _id of the
+	// publish body must be the bare package name (libnpmpublish: root._id =
+	// manifest.name). Using name@version makes the registry reject the publish.
 	id := opts.Name + "@" + opts.Version
 	obj := opts.Object.Clone()
 	obj.Set("_id", id)
@@ -373,14 +380,17 @@ func (opts Options) getOIDCToken() (string, error) {
 		return t, nil
 	}
 
-	// GitHub Actions OIDC
+	// GitHub Actions OIDC. The token endpoint only accepts GET (see GitHub's
+	// docs and npm's provenance implementation): a POST is rejected.
 	reqURL := env["ACTIONS_ID_TOKEN_REQUEST_URL"]
 	reqToken := env["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
 	if reqURL != "" && reqToken != "" {
 		u, err := url.Parse(reqURL)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("parse OIDC request URL: %w", err)
 		}
+		// The token must be minted for the "sigstore" audience, otherwise
+		// Fulcio refuses it ("error processing the identity token").
 		q := u.Query()
 		q.Add("audience", "sigstore")
 		u.RawQuery = q.Encode()
@@ -390,20 +400,20 @@ func (opts Options) getOIDCToken() (string, error) {
 		req.Header.Set("Accept", "application/json")
 		resp, err := opts.Client.Do(req)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("request GitHub OIDC token: %w", err)
 		}
 		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-			return "", fmt.Errorf("GitHub OIDC HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+			return "", fmt.Errorf("GitHub OIDC token request: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 		}
 
 		var result struct {
 			Value string `json:"value"`
 		}
 		if err := json.UnmarshalRead(resp.Body, &result); err != nil {
-			return "", err
+			return "", fmt.Errorf("decode GitHub OIDC token: %w", err)
 		}
 		if result.Value != "" {
 			if err := checkAudience(result.Value, "sigstore"); err != nil {
@@ -421,6 +431,11 @@ func (opts Options) getOIDCToken() (string, error) {
 	return "", fmt.Errorf("OIDC token not found")
 }
 
+// checkAudience reads the "aud" claim of a JWT so a wrong audience is reported
+// up front instead of surfacing as an opaque Fulcio failure. It is diagnostic
+// only: the signature is not verified, and the token itself is never logged or
+// included in the error. Tokens that are not JWTs, or that carry no aud, are
+// left to Fulcio to judge.
 func checkAudience(token, want string) error {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -456,8 +471,7 @@ func checkAudience(token, want string) error {
 	if slices.Contains(got, want) {
 		return nil
 	}
-	return fmt.Errorf("OIDC token audience is %q, want %q: "+
-		"the token must be requested with audience=sigstore", got, want)
+	return fmt.Errorf("OIDC token audience is %q, want %q: the token must be requested with audience=sigstore", got, want)
 }
 
 func pickKeys(m map[string]string, keys []string) map[string]string {

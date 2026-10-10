@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,33 +16,40 @@ import (
 	"github.com/startracex/wangpkg/pkg/npmregistry"
 )
 
+// Storage keeps downloaded package contents on disk, addressed by integrity.
 type Storage struct {
 	results  concurrent.SharedResult[*FileMap]
 	Registry *npmregistry.Client
 	Dir      string
 }
 
+// New returns a storage rooted at dir, fetching tarballs through registry.
 func New(dir string, registry *npmregistry.Client) *Storage {
 	return &Storage{Dir: dir, Registry: registry}
 }
 
+// getIndexPath returns where the file map of a package is cached.
 func (s *Storage) getIndexPath(hash string) string {
 	return filepath.Join(s.Dir, "index", chunkPath(hash, []int{2, 2}))
 }
 
+// getChunkPath returns where the content of a file is stored.
 func (s *Storage) getChunkPath(hash string) string {
 	return filepath.Join(s.Dir, "chunk", chunkPath(hash, []int{2, 2}))
 }
 
+// getTempPath returns the directory used while extracting a tarball.
 func (s *Storage) getTempPath() string {
 	return filepath.Join(s.Dir, "tmp")
 }
 
+// FetchArtifact returns the file map of a distribution, downloading and
+// extracting the tarball on a cache miss. Concurrent callers share one result.
 func (s *Storage) FetchArtifact(d manifest.Dist) (*FileMap, error) {
 	return s.results.Do(d.Integrity.String(), func() (*FileMap, error) {
 		ihex, err := d.Integrity.Hex()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("decode integrity %s: %w", d.Integrity, err)
 		}
 		indexFilePath := s.getIndexPath(ihex)
 		fm, err := readFileMap(indexFilePath)
@@ -51,13 +59,13 @@ func (s *Storage) FetchArtifact(d manifest.Dist) (*FileMap, error) {
 
 		resp, err := s.Registry.Tarball(d.Tarball)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("download tarball %s: %w", d.Tarball, err)
 		}
 		defer func() { _ = resp.Body.Close() }()
 
 		tmpDir := s.getTempPath()
 		if err := os.MkdirAll(tmpDir, 0o755); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("create temp dir %s: %w", tmpDir, err)
 		}
 
 		pm := new(PathMap[File])
@@ -68,7 +76,7 @@ func (s *Storage) FetchArtifact(d manifest.Dist) (*FileMap, error) {
 			}
 			tmpFile, err := os.CreateTemp(tmpDir, "tmp-*")
 			if err != nil {
-				return err
+				return fmt.Errorf("create temp file in %s: %w", tmpDir, err)
 			}
 
 			tmpName := tmpFile.Name()
@@ -85,7 +93,7 @@ func (s *Storage) FetchArtifact(d manifest.Dist) (*FileMap, error) {
 
 			fh := sha512.New()
 			if _, err := io.Copy(io.MultiWriter(tmpFile, fh), tarReader); err != nil {
-				return err
+				return fmt.Errorf("extract %s: %w", name, err)
 			}
 			hashsum := fh.Sum(nil)
 			hashsumhex := hex.EncodeToString(hashsum)
@@ -97,51 +105,57 @@ func (s *Storage) FetchArtifact(d manifest.Dist) (*FileMap, error) {
 			})
 
 			if err := syncAndClose(tmpFile); err != nil {
-				return err
+				return fmt.Errorf("flush %s: %w", name, err)
 			}
 			closetmpDone = true
 
 			chunkFilePath := s.getChunkPath(hashsumhex)
 			if err := os.MkdirAll(filepath.Dir(chunkFilePath), 0o755); err != nil {
-				return err
+				return fmt.Errorf("create chunk dir for %s: %w", name, err)
 			}
 			if err := os.Rename(tmpName, chunkFilePath); err != nil {
 				if !errors.Is(err, os.ErrExist) {
 					// may other go routine already wrote the file
-					return err
+					return fmt.Errorf("store %s: %w", name, err)
 				}
 			}
 			renameDone = true
 
 			return nil
 		}); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("extract tarball %s: %w", d.Tarball, err)
 		}
 
 		fm = newFileMap(pm, d)
 		if err := os.MkdirAll(filepath.Dir(indexFilePath), 0o755); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("create index dir for %s: %w", d.Integrity, err)
 		}
 		if err := writeFileMap(indexFilePath, fm); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("write index %s: %w", indexFilePath, err)
 		}
 		return fm, nil
 	})
 }
 
+// RealPath returns where the content identified by an integrity is stored.
 func (s *Storage) RealPath(i manifest.Integrity) (string, error) {
 	ihex, err := i.Hex()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("decode integrity %s: %w", i, err)
 	}
 	return s.getChunkPath(ihex), nil
 }
 
+// LoadFileMap reads the cached file map of an already stored package.
 func (s *Storage) LoadFileMap(i manifest.Integrity) (*FileMap, error) {
 	ihex, err := i.Hex()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode integrity %s: %w", i, err)
 	}
 	filePath := s.getIndexPath(ihex)
-	return readFileMap(filePath)
+	fm, err := readFileMap(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("read file map %s: %w", filePath, err)
+	}
+	return fm, nil
 }

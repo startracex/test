@@ -4,6 +4,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"strings"
 	"unicode"
 )
@@ -92,12 +93,13 @@ func NewPeople(s string) *People {
 	}
 }
 
+// UnmarshalJSONFrom accepts a "name <email> (url)" shorthand or an object.
 func (p *People) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	switch dec.PeekKind() {
 	case '"': // string
 		var s string
 		if err := json.UnmarshalDecode(dec, &s); err != nil {
-			return err
+			return fmt.Errorf("decode people string: %w", err)
 		}
 		*p = *NewPeople(s)
 		return nil
@@ -105,13 +107,18 @@ func (p *People) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	case '{': // object
 		var raw people
 		if err := json.UnmarshalDecode(dec, &raw); err != nil {
-			return err
+			return fmt.Errorf("decode people object: %w", err)
 		}
 		*p = People(raw)
 		return nil
 	default:
+		// npm accepts null ("author": null); the value is read past and left
+		// untouched, so only a read failure is reported.
 		_, err := dec.ReadValue()
-		return err
+		if err != nil {
+			return fmt.Errorf("%w: read people value: %w", ErrPeopleNotValid, err)
+		}
+		return nil
 	}
 }
 

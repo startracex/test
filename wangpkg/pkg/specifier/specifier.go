@@ -15,6 +15,8 @@ const (
 	TypeURL       = "url"
 )
 
+// Specifier is a parsed dependency request; every implementation can render
+// itself back into a request string and report the namespace it resolves in.
 type Specifier interface {
 	Type() string
 	String() string
@@ -22,6 +24,7 @@ type Specifier interface {
 	Namespace() string
 }
 
+// RegistrySpecifier is a package resolved from an npm style registry.
 type RegistrySpecifier struct {
 	alias   string
 	Name    string
@@ -210,6 +213,8 @@ func (x GitFlag) String() string {
 	return ""
 }
 
+// ParseGitFlag reads the git ref of a request: a "semver:" prefix marks a
+// range, anything else is taken as a commit.
 func ParseGitFlag(flag string) GitFlag {
 	gf := GitFlag{}
 	if flag != "" {
