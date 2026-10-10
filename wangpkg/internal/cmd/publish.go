@@ -48,6 +48,7 @@ var PublishCommand = &cli.Command{
 		flagWorkspaceRoot,
 		publishFlagAccess,
 		publishFlagTag,
+		publishFlagProvenance,
 	},
 	Action: func(ctx *cli.Context) error {
 		cwd, err := os.Getwd()
