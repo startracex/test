@@ -3,9 +3,12 @@ package npmregistry
 import (
 	"bytes"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/startracex/wangpkg/pkg/manifest"
@@ -147,7 +150,18 @@ func (c *Client) checkResponse(resp *http.Response, err error) (*http.Response, 
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		defer func() { _ = resp.Body.Close() }()
-		return nil, fmt.Errorf("HTTP error: %d %s %s", resp.StatusCode, resp.Request.Method, resp.Request.URL.String())
+		const maxErrBody = 4096
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrBody))
+		detail := strings.TrimSpace(string(body))
+		auth := "absent"
+		if resp.Request != nil && resp.Request.Header.Get("Authorization") != "" {
+			auth = "present"
+		}
+		msg := fmt.Sprintf("HTTP error: %d %s %s (auth header: %s)", resp.StatusCode, resp.Request.Method, resp.Request.URL.String(), auth)
+		if detail == "" {
+			return nil, errors.New(msg)
+		}
+		return nil, fmt.Errorf("%s: %s", msg, detail)
 	}
 	return resp, nil
 }
