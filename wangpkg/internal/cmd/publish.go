@@ -33,8 +33,8 @@ var (
 		Name: "access",
 	}
 	publishFlagProvenance = &cli.BoolFlag{
-		Name:  "provenance publish",
-		Usage: "workspace root directory.",
+		Name:  "provenance",
+		Usage: "publish with Sigstore provenance.",
 	}
 )
 
