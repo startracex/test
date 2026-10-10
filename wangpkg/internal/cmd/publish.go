@@ -32,6 +32,10 @@ var (
 	publishFlagAccess = &cli.StringFlag{
 		Name: "access",
 	}
+	publishFlagProvenance = &cli.BoolFlag{
+		Name:  "provenance publish",
+		Usage: "workspace root directory.",
+	}
 )
 
 var PublishCommand = &cli.Command{
@@ -55,6 +59,7 @@ var PublishCommand = &cli.Command{
 			Access:        ctx.String(publishFlagAccess.Name),
 			Recursive:     ctx.Bool(flagRecursive.Name),
 			WorkspaceRoot: ctx.Bool(flagWorkspaceRoot.Name),
+			Provenance:    ctx.Bool(publishFlagProvenance.Name),
 			Filters: append(
 				ctx.StringSlice(flagFilter.Name),
 				ctx.Args().Slice()...,
