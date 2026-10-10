@@ -124,7 +124,7 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 		}
 		attachments[provenanceBundleName] = Attachment{
 			ContentType: sigstoreContentType,
-			Data:        base64.StdEncoding.EncodeToString(bunJSON),
+			Data:        string(bunJSON),
 			Length:      int64(len(bunJSON)),
 		}
 	}
@@ -135,7 +135,7 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 	obj.Set("dist", dist)
 
 	body := publishBody{
-		ID:          id,
+		ID:          opts.Name,
 		Name:        opts.Name,
 		Description: opts.Description,
 		Access:      access,
