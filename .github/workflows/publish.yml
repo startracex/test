@@ -16,7 +16,7 @@ jobs:
             - name: Build
               working-directory: ./wangpkg
               run: |
-                  go build ./cmd/wangpkg/ -o ../wp
+                  go build -o ../wp ./cmd/wangpkg/
             - name: Set npm token
               run: |
                   ./wp config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
