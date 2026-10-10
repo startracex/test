@@ -18,6 +18,7 @@ func main() {
 			cmd.ListCommand,
 			cmd.ConfigCommand,
 			cmd.PackCommand,
+			cmd.PublishCommand,
 			cmd.DlxCommand,
 			cmd.CreateCommand,
 			cmd.RunCommand,
