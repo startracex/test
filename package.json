@@ -1,0 +1,11 @@
+{
+    "name": "@startracex/test",
+    "version": "0.0.0",
+    "type": "module",
+    "files": [
+        "main.js"
+    ],
+    "exports": {
+        ".": "./main.js"
+    }
+}

@@ -1,0 +1,24 @@
+name: Publish
+on:
+  release:
+    types: [published]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+      - name: Build
+        working-directory: ./wangpkg
+        run: |
+          go build ./cmd/wangpkg/ -o ../wp
+      - name: Set npm token
+        run: |
+          ./wp config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+      - run: ./wp publish --provenance --access public
+

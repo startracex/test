@@ -1,0 +1,16 @@
+{
+    "private": true,
+    "name": "@wangpkg/root",
+    "version": "0.0.0",
+    "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/startracex/wangpkg.git"
+    },
+    "workspaces": [
+        "./npm/*"
+    ],
+    "devDependencies": {
+        "@wangpkg/cli": "workspace:^"
+    }
+}
