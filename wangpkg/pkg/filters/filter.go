@@ -107,8 +107,7 @@ func patternFilter(opts patternOptions) []*workspace.Package {
 				relPath = filepath.ToSlash(relPath)
 				matches = exclude.regexp.MatchString(relPath)
 			} else {
-				name := pkg.Name
-				matches = exclude.regexp.MatchString(name)
+				matches = exclude.regexp.MatchString(pkg.Name)
 			}
 			if !matches {
 				continue

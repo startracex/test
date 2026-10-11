@@ -126,10 +126,5 @@ func Symlink(oldname, newname string) error {
 		return err
 	}
 
-	parentDir := filepath.Dir(newAbs)
-	if err := os.MkdirAll(parentDir, 0o755); err != nil {
-		return err
-	}
-
 	return junction.Create(oldAbs, newAbs)
 }

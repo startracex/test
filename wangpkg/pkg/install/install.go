@@ -164,6 +164,9 @@ func (i *Installer) createLinks(results map[*workspace.Package]map[string]*Insta
 		for _, ir := range irs {
 			eg.Add(func() error {
 				for _, request := range ir.Links {
+					if err := os.MkdirAll(filepath.Dir(request.Target), 0777); err != nil {
+						return fmt.Errorf("link %s to %s: %w", request.Source, request.Target, err)
+					}
 					if err := osutil.Symlink(request.Source, request.Target); err != nil {
 						return fmt.Errorf("link %s to %s: %w", request.Source, request.Target, err)
 					}
