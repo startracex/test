@@ -12,8 +12,12 @@ import (
 
 // resolveFromLockfilePackage restores the manifest of an already installed
 // package from the store, falling back to the lockfile metadata when the cache
-// is unavailable.
+// is unavailable. The lockfile package is required.
 func (r *Resolver) resolveFromLockfilePackage(lockfilePkg *lockfile.Package) (*manifest.Manifest, error) {
+	if lockfilePkg == nil {
+		return nil, fmt.Errorf("resolve from lockfile: lockfile package is missing")
+	}
+
 	if r.Locked {
 		return manifestFromLockfilePackage(lockfilePkg), nil
 	}
@@ -26,10 +30,7 @@ func (r *Resolver) resolveFromLockfilePackage(lockfilePkg *lockfile.Package) (*m
 	fm, err := r.Storage.LoadFileMap(lockfilePkg.Integrity)
 	if err != nil {
 		// If package cache is not available, fallback to lockfile metadata
-		if lockfilePkg != nil {
-			return manifestFromLockfilePackage(lockfilePkg), nil
-		}
-		return nil, fmt.Errorf("load file map of %s: %w", lockfilePkg.Integrity, err)
+		return manifestFromLockfilePackage(lockfilePkg), nil
 	}
 	f, ok := fm.Files["package.json"]
 	if !ok {
