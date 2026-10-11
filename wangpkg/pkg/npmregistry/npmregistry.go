@@ -43,9 +43,6 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	return c.a.Do(req)
 }
 
-// RoundTrip lets *Client act as an http.RoundTripper so it can be handed to
-// libraries that build their own http.Client (e.g. sigstore-go), reusing the
-// same proxy, retry and authentication configuration.
 func (c *Client) RoundTrip(req *http.Request) (*http.Response, error) {
 	return c.a.RoundTrip(req)
 }
@@ -101,9 +98,6 @@ func (c *Client) Tarball(rawURL string) (*http.Response, error) {
 }
 
 // Publish uploads one version of a package to the registry.
-//
-// The slash of a scoped name must stay URL-encoded: the registry expects
-// @scope%2fpkg, matching npm-package-arg's escapedName.
 func (c *Client) Publish(name string, body []byte) error {
 	reg, err := c.n.GetRegistry(name)
 	if err != nil {
@@ -161,17 +155,13 @@ func (c *Client) Published(name, version string) (bool, error) {
 	return resp.StatusCode >= 200 && resp.StatusCode < 300, nil
 }
 
-// checkResponse passes a successful response through, and turns anything else
-// into an error. The registry explains failures in the response body
-// (e.g. npm's {"error":"..."}), so it is read and appended when present.
 func (c *Client) checkResponse(resp *http.Response, err error) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		defer func() { _ = resp.Body.Close() }()
-		const maxErrBody = 4096
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrBody))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		if detail := strings.TrimSpace(string(body)); detail != "" {
 			return nil, fmt.Errorf("unexpected HTTP status %d for %s %s: %s",
 				resp.StatusCode, resp.Request.Method, resp.Request.URL, detail)

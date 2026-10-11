@@ -92,7 +92,7 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 		},
 	}
 	dist := manifest.Dist{
-		Integrity: manifest.Integrity(sr.SHA512SRI),
+		Integrity: sr.Integrity,
 		Shasum:    sr.SHA1,
 		Tarball:   tarballURL.String(),
 	}
@@ -389,8 +389,6 @@ func (opts Options) getOIDCToken() (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("parse OIDC request URL: %w", err)
 		}
-		// The token must be minted for the "sigstore" audience, otherwise
-		// Fulcio refuses it ("error processing the identity token").
 		q := u.Query()
 		q.Add("audience", "sigstore")
 		u.RawQuery = q.Encode()
@@ -431,11 +429,6 @@ func (opts Options) getOIDCToken() (string, error) {
 	return "", fmt.Errorf("OIDC token not found")
 }
 
-// checkAudience reads the "aud" claim of a JWT so a wrong audience is reported
-// up front instead of surfacing as an opaque Fulcio failure. It is diagnostic
-// only: the signature is not verified, and the token itself is never logged or
-// included in the error. Tokens that are not JWTs, or that carry no aud, are
-// left to Fulcio to judge.
 func checkAudience(token, want string) error {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -495,7 +488,7 @@ type sumResult struct {
 	Base64    string
 	SHA1      string
 	SHA512    string
-	SHA512SRI string
+	Integrity manifest.Integrity
 	Size      int64
 }
 
@@ -523,7 +516,7 @@ func sumReader(r io.Reader) (sumResult, error) {
 	result.Size = size
 	result.SHA1 = hex.EncodeToString(sum1)
 	result.SHA512 = hex.EncodeToString(sum512)
-	result.SHA512SRI = "sha512-" + base64.StdEncoding.EncodeToString(sum512)
+	result.Integrity = manifest.Integrity("sha512-" + base64.StdEncoding.EncodeToString(sum512))
 	result.Base64 = base64Builder.String()
 
 	return result, nil
