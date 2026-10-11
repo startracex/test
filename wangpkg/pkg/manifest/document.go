@@ -58,7 +58,6 @@ func (i *Document) resolve(versionOrTag string) (version string, m *Manifest, er
 	return "", nil, fmt.Errorf("no version matches tag %q in %q package", versionOrTag, i.Name)
 }
 
-// newDocumentRequest builds the request fetching the packument of a package.
 func newDocumentRequest(spec *specifier.RegistrySpecifier, rc *npmini.NpmINI) (*http.Request, error) {
 	u, err := rc.GetRegistry(spec.Namespace())
 	if err != nil {

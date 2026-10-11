@@ -48,15 +48,12 @@ func (m *Manifest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 
 	if err := json.MarshalEncode(enc, &m.PackageJSON); err != nil {
-		return fmt.Errorf("encode package.json: %w", err)
+		return err
 	}
 	return nil
 }
 
 // ReadFile reads and parses the package.json at path.
-//
-// The read error is returned untouched: callers detect a missing manifest with
-// os.IsNotExist, which does not unwrap.
 func ReadFile(path string) (*Manifest, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -64,7 +61,7 @@ func ReadFile(path string) (*Manifest, error) {
 	}
 	m := new(Manifest)
 	if err := json.Unmarshal(content, m); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, err
 	}
 	m.FilePath = path
 	return m, nil

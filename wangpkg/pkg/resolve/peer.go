@@ -13,6 +13,7 @@ import (
 )
 
 type PeerRequests map[string]manifest.DependencyMeta
+
 type PeerContext map[string]specifier.Specifier
 
 func (pr PeerRequests) SatisfiedBy(spec specifier.Specifier) bool {
