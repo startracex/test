@@ -38,7 +38,7 @@ const (
 	sigstoreContentType = "application/vnd.dev.sigstore.bundle+json;version=0.2"
 )
 
-type publishBody struct {
+type PublishBody struct {
 	ID          string                `json:"_id"`
 	Name        string                `json:"name"`
 	Access      string                `json:"access"`
@@ -142,7 +142,7 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 	obj.Set("_id", id)
 	obj.Set("dist", dist)
 
-	body := publishBody{
+	body := PublishBody{
 		ID:          opts.Name,
 		Name:        opts.Name,
 		Description: opts.Description,
@@ -365,7 +365,7 @@ func newStruct(v any) (*structpb.Struct, error) {
 	return out, nil
 }
 
-func (opts Options) doPublish(body publishBody) error {
+func (opts Options) doPublish(body PublishBody) error {
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
 		return err
