@@ -12,20 +12,8 @@ import (
 )
 
 const (
-	fulcioEndpoint = "https://fulcio.sigstore.dev"
-	rekorEndpoint  = "https://rekor.sigstore.dev"
-
-	inTotoTypeV01 = "https://in-toto.io/Statement/v0.1"
-	inTotoTypeV1  = "https://in-toto.io/Statement/v1"
-
-	slsaV02 = "https://slsa.dev/provenance/v0.2"
-	slsaV1  = "https://slsa.dev/provenance/v1"
-
-	githubBuildType = "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1"
-	gitlabBuildType = "https://github.com/npm/cli/gitlab/v0alpha1"
-
-	githubBuilderIDPrefix = "https://github.com/actions/runner"
-
+	fulcioEndpoint  = "https://fulcio.sigstore.dev"
+	rekorEndpoint   = "https://rekor.sigstore.dev"
 	dssePayloadType = "application/vnd.in-toto+json"
 )
 
