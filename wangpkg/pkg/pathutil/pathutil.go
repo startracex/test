@@ -32,13 +32,13 @@ func IsPathLike(s string) bool {
 		}
 		return false
 	}
-	return dot == 1 || dot == 2
+	return dot == 1 || dot == 2 || filepath.IsAbs(s)
 }
 
 func PrettyPath(s string) string {
 	s = filepath.Clean(s)
 	s = strings.ReplaceAll(s, "\\", "/")
-	if s[0] == '/' || s == "." || strings.HasPrefix(s, "..") {
+	if s[0] == '/' || s == "." || strings.HasPrefix(s, "..") || filepath.IsAbs(s) {
 		return s
 	}
 	return "./" + s
