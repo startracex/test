@@ -208,7 +208,7 @@ func RunPublish(cwd string, opts PublishOptions) error {
 }
 
 func packagesToPublish(pkgs []*workspace.Package, reg *npmregistry.Client) ([]*workspace.Package, error) {
-	result := concurrent.NewSlice[*workspace.Package](len(pkgs))
+	m := concurrent.NewMap[*workspace.Package, struct{}](len(pkgs))
 	eg := concurrent.NewErrGroup()
 	for _, p := range pkgs {
 		eg.Add(func() error {
@@ -217,7 +217,7 @@ func packagesToPublish(pkgs []*workspace.Package, reg *npmregistry.Client) ([]*w
 				return err
 			}
 			if !ok {
-				result.Append(p)
+				m.Set(p, struct{}{})
 			}
 			return nil
 		})
@@ -225,7 +225,11 @@ func packagesToPublish(pkgs []*workspace.Package, reg *npmregistry.Client) ([]*w
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
-	return result.Slice(), nil
+	result := make([]*workspace.Package, 0, m.Len())
+	for p := range m.Iterator() {
+		result = append(result, p)
+	}
+	return result, nil
 }
 
 func getRegistry(m *manifest.Manifest, rc *npmini.NpmINI) (*url.URL, error) {

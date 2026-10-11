@@ -269,10 +269,8 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 		ir.Links = append(ir.Links, Link{Target: linkPath, Source: peerPath})
 	}
 
-	// Install regular dependencies. concurrent.ErrGroup installs a single
-	// dependency synchronously and fans multiple out across a goroutine pool.
-	// Links are built on the calling goroutine so ir.links has a single writer.
-	depLinks := concurrent.NewSlice[depLink](len(node.Dependencies))
+	// Install regular dependencies.
+	depLinks := concurrent.NewMap[string, *InstallResult](len(node.Dependencies))
 	eg := concurrent.NewErrGroup()
 	for alias, depNode := range node.Dependencies {
 		if depNode.Resolution.Mode&deps.ModePeer != 0 {
@@ -284,7 +282,8 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 				return fmt.Errorf("install %s of %s: %w", alias, key, err)
 			}
 			if mp && depIR.Matched {
-				depLinks.Append(depLink{result: depIR, alias: alias})
+				// depLinks.Append(depLink{result: depIR, alias: alias})
+				depLinks.Set(alias, depIR)
 			}
 			return nil
 		})
@@ -294,9 +293,9 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 	}
 
 	// Link regular dependencies into this package's node_modules.
-	for dl := range depLinks.Iterator() {
-		newname := filepath.Join(distPath, constants.ModulesDirName, dl.alias)
-		ir.Links = append(ir.Links, Link{Target: newname, Source: dl.result.DistPath})
+	for alias, result := range depLinks.Iterator() {
+		newname := filepath.Join(distPath, constants.ModulesDirName, alias)
+		ir.Links = append(ir.Links, Link{Target: newname, Source: result.DistPath})
 	}
 
 	return ir, nil
