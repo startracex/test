@@ -5,11 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/startracex/wangpkg/pkg/deps"
 	"github.com/startracex/wangpkg/pkg/manifest"
 	"github.com/startracex/wangpkg/pkg/specifier"
-	"github.com/startracex/wangpkg/pkg/versions"
 )
 
 type PeerRequests map[string]manifest.DependencyMeta
@@ -40,26 +38,6 @@ func (pr PeerRequests) IsOptional() bool {
 		}
 	}
 	return true
-}
-
-func checkSpecifierSatisfies(spec specifier.Specifier, request string) bool {
-	regSpec, isReg := spec.(*specifier.RegistrySpecifier)
-	if !isReg {
-		return false
-	}
-	return checkVersionSatisfies(regSpec.Version, request)
-}
-
-func checkVersionSatisfies(version, request string) bool {
-	matcher := new(versions.Matcher)
-	if err := matcher.Add(request); err != nil {
-		return false
-	}
-	v, err := semver.StrictNewVersion(version)
-	if err != nil {
-		return false
-	}
-	return matcher.Check(v)
 }
 
 func NewPeerContext() PeerContext {

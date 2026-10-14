@@ -7,6 +7,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/startracex/wangpkg/pkg/lockfile"
 	"github.com/startracex/wangpkg/pkg/specifier"
+	"github.com/startracex/wangpkg/pkg/versions"
 	"github.com/startracex/wangpkg/pkg/workspace"
 )
 
@@ -130,4 +131,24 @@ func saveNodeToLockfile(i *lockfile.Lockfile, node *ResolvedNode) {
 	for _, dep := range node.Dependencies {
 		saveNodeToLockfile(i, dep)
 	}
+}
+
+func checkSpecifierSatisfies(spec specifier.Specifier, request string) bool {
+	regSpec, isReg := spec.(*specifier.RegistrySpecifier)
+	if !isReg {
+		return false
+	}
+	return checkVersionSatisfies(regSpec.Version, request)
+}
+
+func checkVersionSatisfies(version, request string) bool {
+	matcher := new(versions.Matcher)
+	if err := matcher.Add(request); err != nil {
+		return false
+	}
+	v, err := semver.StrictNewVersion(version)
+	if err != nil {
+		return false
+	}
+	return matcher.Check(v)
 }

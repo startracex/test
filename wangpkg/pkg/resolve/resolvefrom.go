@@ -10,12 +10,10 @@ import (
 	"github.com/startracex/wangpkg/pkg/specifier"
 )
 
-// resolveFromLockfilePackage restores the manifest of an already installed
-// package from the store, falling back to the lockfile metadata when the cache
-// is unavailable. The lockfile package is required.
+// resolveFromLockfilePackage restores the manifest from lockfile package.
 func (r *Resolver) resolveFromLockfilePackage(lockfilePkg *lockfile.Package) (*manifest.Manifest, error) {
 	if lockfilePkg == nil {
-		return nil, fmt.Errorf("resolve from lockfile: lockfile package is missing")
+		return nil, fmt.Errorf("lockfile package is missing")
 	}
 
 	if r.Locked {
@@ -81,8 +79,7 @@ func (r *Resolver) ResolveRegistrySpecifier(requestSpecifier *specifier.Registry
 	return resolvedManifest, d, nil
 }
 
-// resolveFromDir reads the manifest of a directory, preferring a workspace
-// package when one is registered there.
+// resolveFromDir reads the manifest of a directory.
 func (r *Resolver) resolveFromDir(dir string) (*manifest.Manifest, error) {
 	if p, ok := r.Workspace.PathOf(dir); ok {
 		return p.Manifest, nil
