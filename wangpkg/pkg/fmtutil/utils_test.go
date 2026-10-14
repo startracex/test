@@ -27,7 +27,7 @@ func TestIndent(t *testing.T) {
 }
 
 func TestNormalizeToLF(t *testing.T) {
-	got := string(NormalizeToLF([]byte("a\r\nb\rc\n")))
+	got := string(NormalizeToLF([]byte("a\r\nb\ni\n")))
 	if got != "a\nb\nc\n" {
 		t.Errorf("NormalizeToLF = %q", got)
 	}

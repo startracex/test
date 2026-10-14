@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"slices"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/startracex/wangpkg/pkg/deps"
 	"github.com/startracex/wangpkg/pkg/lockfile"
 	"github.com/startracex/wangpkg/pkg/manifest"
-	"github.com/startracex/wangpkg/pkg/npmregistry"
+	"github.com/startracex/wangpkg/pkg/npmini"
 	"github.com/startracex/wangpkg/pkg/specifier"
 	"github.com/startracex/wangpkg/pkg/storage"
 	"github.com/startracex/wangpkg/pkg/workspace"
@@ -39,7 +40,8 @@ type Resolver struct {
 	seenResolved   concurrent.Map[string, struct{}]
 	resolveResults concurrent.SharedResult[*ResolveResult]
 	DocumentsCache *manifest.DocumentCache
-	Registry       *npmregistry.Client
+	NpmINI         *npmini.NpmINI
+	Transport      http.RoundTripper
 	Storage        *storage.Storage
 	Weighted       *semaphore.Weighted
 	Workspace      *workspace.Workspace

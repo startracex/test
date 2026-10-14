@@ -4,12 +4,14 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 
 	"github.com/startracex/ciinfo"
 	"github.com/startracex/ciinfo/vendors"
+	"github.com/startracex/wangpkg/pkg/auth"
 	"github.com/startracex/wangpkg/pkg/concurrent"
 	"github.com/startracex/wangpkg/pkg/constants"
 	"github.com/startracex/wangpkg/pkg/execute"
@@ -17,7 +19,6 @@ import (
 	"github.com/startracex/wangpkg/pkg/manifest"
 	"github.com/startracex/wangpkg/pkg/npmconfig"
 	"github.com/startracex/wangpkg/pkg/npmini"
-	"github.com/startracex/wangpkg/pkg/npmregistry"
 	"github.com/startracex/wangpkg/pkg/pack"
 	"github.com/startracex/wangpkg/pkg/publish"
 	"github.com/startracex/wangpkg/pkg/workspace"
@@ -95,7 +96,7 @@ func RunPublish(cwd string, opts PublishOptions) error {
 	if err != nil {
 		return err
 	}
-	reg := npmregistry.New(npmregistry.Options{NpmINI: cfg})
+	rt := auth.NewTransport(cfg, nil)
 
 	pkgs, err := packagesToPublish(filters.Filter(filters.Options{
 		Workspace:     ws,
@@ -104,7 +105,7 @@ func RunPublish(cwd string, opts PublishOptions) error {
 		WorkspaceRoot: opts.WorkspaceRoot,
 		Dir:           cwd,
 		Nearby:        true,
-	}), reg)
+	}), cfg, rt)
 	if err != nil {
 		return err
 	}
@@ -182,7 +183,8 @@ func RunPublish(cwd string, opts PublishOptions) error {
 			}
 			_, err = publish.Publish(publish.Options{
 				CI:         ci,
-				Client:     reg,
+				NpmINI:     cfg,
+				Transport:  rt,
 				File:       tmpFile,
 				Tag:        opts.Tag,
 				Access:     opts.Access,
@@ -207,12 +209,12 @@ func RunPublish(cwd string, opts PublishOptions) error {
 	return nil
 }
 
-func packagesToPublish(pkgs []*workspace.Package, reg *npmregistry.Client) ([]*workspace.Package, error) {
+func packagesToPublish(pkgs []*workspace.Package, cfg *npmini.NpmINI, rt http.RoundTripper) ([]*workspace.Package, error) {
 	m := concurrent.NewMap[*workspace.Package, struct{}](len(pkgs))
 	eg := concurrent.NewErrGroup()
 	for _, p := range pkgs {
 		eg.Add(func() error {
-			ok, err := reg.Published(p.Manifest.Name, p.Manifest.Version)
+			ok, err := publish.Published(cfg, rt, p.Manifest.Name, p.Manifest.Version)
 			if err != nil {
 				return err
 			}
@@ -232,10 +234,10 @@ func packagesToPublish(pkgs []*workspace.Package, reg *npmregistry.Client) ([]*w
 	return result, nil
 }
 
-func getRegistry(m *manifest.Manifest, rc *npmini.NpmINI) (*url.URL, error) {
+func getRegistry(m *manifest.Manifest, ni *npmini.NpmINI) (*url.URL, error) {
 	s := m.PublishConfig.Registry
 	if s != "" {
 		return url.Parse(s)
 	}
-	return rc.GetRegistry(m.Name)
+	return ni.GetRegistry(m.Name)
 }

@@ -13,8 +13,8 @@ import (
 	"github.com/startracex/wangpkg/pkg/install"
 	"github.com/startracex/wangpkg/pkg/lockfile"
 	"github.com/startracex/wangpkg/pkg/manifest"
+	"github.com/startracex/wangpkg/pkg/auth"
 	"github.com/startracex/wangpkg/pkg/npmconfig"
-	"github.com/startracex/wangpkg/pkg/npmregistry"
 	"github.com/startracex/wangpkg/pkg/orderedobject"
 	"github.com/startracex/wangpkg/pkg/resolve"
 	"github.com/startracex/wangpkg/pkg/specifier"
@@ -52,9 +52,9 @@ func runDlx(cwd string, regSpec *specifier.RegistrySpecifier, args []string) err
 	if err != nil {
 		return err
 	}
-	reg := npmregistry.New(npmregistry.Options{NpmINI: cfg})
+	rt := auth.NewTransport(cfg, nil)
 
-	d, err := reg.Document(regSpec)
+	d, err := manifest.FetchDocument(regSpec, cfg, rt)
 	if err != nil {
 		return err
 	}
@@ -96,12 +96,13 @@ func runDlx(cwd string, regSpec *specifier.RegistrySpecifier, args []string) err
 		baseLockfile := lockfile.New(nil)
 		targetLockfile := lockfile.New(ws)
 		resolver := resolve.Resolver{
-			Registry:       reg,
+			NpmINI:         cfg,
+			Transport:      rt,
 			DocumentsCache: manifest.NewDocCache(128, 2048),
 			Lockfile:       baseLockfile,
 			Workspace:      ws,
 			Weighted:       semaphore.NewWeighted(int64(concurrency)),
-			Storage:        storage.New(npmconfig.StoreDir(cfg), reg),
+			Storage:        storage.New(npmconfig.StoreDir(cfg), rt),
 		}
 
 		nodes, err := resolver.ResolveWorkspace()

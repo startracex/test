@@ -1,10 +1,15 @@
 package search
 
 import (
+	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/startracex/wangpkg/pkg/httputil"
+	"github.com/startracex/wangpkg/pkg/npmini"
 )
 
 type Response struct {
@@ -47,6 +52,21 @@ type Parameters struct {
 	Texts []string
 	Size  int
 	From  int
+}
+
+// Search queries the search endpoint of the default registry of ni.
+func Search(p Parameters, ni *npmini.NpmINI, rt http.RoundTripper) (*Response, error) {
+	reg, err := ni.GetRegistry("")
+	if err != nil {
+		return nil, fmt.Errorf("resolve registry: %w", err)
+	}
+	u := reg.JoinPath("/-/v1/search")
+	u.RawQuery = p.Query()
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("build search request: %w", err)
+	}
+	return httputil.DecodeJSON[*Response](httputil.Do(rt, req))
 }
 
 func (p Parameters) Query() string {

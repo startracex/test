@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/startracex/wangpkg/pkg/httputil"
 	"github.com/startracex/wangpkg/pkg/npmini"
 	"github.com/startracex/wangpkg/pkg/specifier"
 	"github.com/startracex/wangpkg/pkg/versions"
@@ -58,10 +59,19 @@ func (i *Document) resolve(versionOrTag string) (version string, m *Manifest, er
 	return "", nil, fmt.Errorf("no version matches tag %q in %q package", versionOrTag, i.Name)
 }
 
-func newDocumentRequest(spec *specifier.RegistrySpecifier, rc *npmini.NpmINI) (*http.Request, error) {
-	u, err := rc.GetRegistry(spec.Namespace())
+func newDocumentRequest(spec *specifier.RegistrySpecifier, ni *npmini.NpmINI) (*http.Request, error) {
+	u, err := ni.GetRegistry(spec.Namespace())
 	if err != nil {
 		return nil, fmt.Errorf("resolve registry for %s: %w", spec.Name, err)
 	}
 	return http.NewRequest(http.MethodGet, u.JoinPath(spec.Name).String(), nil)
+}
+
+// FetchDocument fetches the packument of spec from the registry.
+func FetchDocument(spec *specifier.RegistrySpecifier, ni *npmini.NpmINI, rt http.RoundTripper) (*Document, error) {
+	req, err := newDocumentRequest(spec, ni)
+	if err != nil {
+		return nil, fmt.Errorf("build document request for %s: %w", spec.Name, err)
+	}
+	return httputil.DecodeJSON[*Document](httputil.Do(rt, req))
 }

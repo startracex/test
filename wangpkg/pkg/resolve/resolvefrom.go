@@ -67,7 +67,7 @@ func (r *Resolver) ResolveRegistrySpecifier(requestSpecifier *specifier.Registry
 	}
 	defer r.Weighted.Release(1)
 
-	d, err := r.DocumentsCache.FetchDocument(requestSpecifier, r.Registry.NpmINI(), r.Registry)
+	d, err := r.DocumentsCache.FetchDocument(requestSpecifier, r.NpmINI, r.Transport)
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetch document of %s: %w", requestSpecifier.Name, err)
 	}

@@ -21,8 +21,9 @@ import (
 	intoto "github.com/in-toto/attestation/go/v1"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	"github.com/startracex/ciinfo"
+	"github.com/startracex/wangpkg/pkg/httputil"
 	"github.com/startracex/wangpkg/pkg/manifest"
-	"github.com/startracex/wangpkg/pkg/npmregistry"
+	"github.com/startracex/wangpkg/pkg/npmini"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -61,7 +62,8 @@ type PublishBody struct {
 
 type Options struct {
 	*manifest.Manifest
-	Client     *npmregistry.Client
+	NpmINI     *npmini.NpmINI
+	Transport  http.RoundTripper
 	Registry   *url.URL
 	CI         ciinfo.Info
 	File       io.Reader
@@ -163,7 +165,7 @@ func (opts Options) getVisibility() (string, error) {
 	default:
 		return "", fmt.Errorf("invalid access: %s", access)
 	}
-	isPublished, err := opts.Client.Visibility(opts.Name)
+	isPublished, err := Visibility(opts.NpmINI, opts.Transport, opts.Name)
 	if err != nil {
 		return "", err
 	}
@@ -196,7 +198,7 @@ func (opts Options) createProvenance(sr sumResult) (*protobundle.Bundle, error) 
 
 	return SignDSSE(statementJSON, SignOptions{
 		IdentityToken: oidcToken,
-		Transport:     opts.Client,
+		Transport:     opts.Transport,
 	})
 }
 
@@ -350,7 +352,7 @@ func (opts Options) doPublish(body PublishBody) error {
 	if err := json.MarshalWrite(out, body); err != nil {
 		return err
 	}
-	return opts.Client.Publish(opts.Name, out)
+	return PublishContent(opts.NpmINI, opts.Transport, opts.Name, out)
 }
 
 func (opts Options) getOIDCToken() (string, error) {
@@ -376,7 +378,7 @@ func (opts Options) getOIDCToken() (string, error) {
 		req, _ := http.NewRequest(http.MethodGet, u.String(), nil)
 		req.Header.Set("Authorization", "Bearer "+reqToken)
 		req.Header.Set("Accept", "application/json")
-		resp, err := opts.Client.Do(req)
+		resp, err := httputil.Do(opts.Transport, req)
 		if err != nil {
 			return "", fmt.Errorf("request GitHub OIDC token: %w", err)
 		}

@@ -144,17 +144,17 @@ func RunConfigDelete(cwd string, opts ConfigOption) error {
 	if err != nil {
 		return err
 	}
-	rc, err := npmconfig.LoadNpmConfigFile(path)
+	ni, err := npmconfig.LoadNpmConfigFile(path)
 	if err != nil {
 		return err
 	}
-	if !rc.Delete(opts.Key) {
+	if !ni.Delete(opts.Key) {
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, rc.Bytes(), 0o644)
+	return os.WriteFile(path, ni.Bytes(), 0o644)
 }
 
 func RunConfigSet(cwd string, opts ConfigOption) error {
@@ -168,15 +168,15 @@ func RunConfigSet(cwd string, opts ConfigOption) error {
 	if err != nil {
 		return err
 	}
-	rc, err := npmconfig.LoadNpmConfigFile(path)
+	ni, err := npmconfig.LoadNpmConfigFile(path)
 	if err != nil {
 		return err
 	}
-	if !rc.Set(key, value) {
+	if !ni.Set(key, value) {
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, rc.Bytes(), 0o644)
+	return os.WriteFile(path, ni.Bytes(), 0o644)
 }

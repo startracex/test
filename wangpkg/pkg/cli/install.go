@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/startracex/wangpkg/pkg/auth"
 	"github.com/startracex/wangpkg/pkg/deps"
 	"github.com/startracex/wangpkg/pkg/execute"
 	"github.com/startracex/wangpkg/pkg/filters"
@@ -12,7 +13,6 @@ import (
 	"github.com/startracex/wangpkg/pkg/lockfile"
 	"github.com/startracex/wangpkg/pkg/manifest"
 	"github.com/startracex/wangpkg/pkg/npmconfig"
-	"github.com/startracex/wangpkg/pkg/npmregistry"
 	"github.com/startracex/wangpkg/pkg/platform"
 	"github.com/startracex/wangpkg/pkg/resolve"
 	"github.com/startracex/wangpkg/pkg/specifier"
@@ -163,14 +163,15 @@ func RunInstall(cwd string, opts InstallOptions) error {
 		return err
 	}
 
-	reg := npmregistry.New(npmregistry.Options{NpmINI: cfg})
-	resolver := resolve.Resolver{
-		Registry:       reg,
+	rt := auth.NewTransport(cfg, nil)
+	resolver := &resolve.Resolver{
+		NpmINI:         cfg,
+		Transport:      rt,
 		DocumentsCache: manifest.NewDocCache(128, 2048),
 		Lockfile:       baseLockfile,
 		Workspace:      ws,
 		Weighted:       semaphore.NewWeighted(int64(max(1, opts.Concurrency))),
-		Storage:        storage.New(npmconfig.StoreDir(cfg), reg),
+		Storage:        storage.New(npmconfig.StoreDir(cfg), rt),
 		Locked:         opts.Locked,
 	}
 	nodes, err := resolver.ResolveWorkspace()

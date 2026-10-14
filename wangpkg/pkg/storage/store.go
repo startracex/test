@@ -8,24 +8,25 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/startracex/wangpkg/pkg/concurrent"
+	"github.com/startracex/wangpkg/pkg/httputil"
 	"github.com/startracex/wangpkg/pkg/manifest"
-	"github.com/startracex/wangpkg/pkg/npmregistry"
 )
 
 // Storage keeps downloaded package contents on disk, addressed by integrity.
 type Storage struct {
-	results  concurrent.SharedResult[*FileMap]
-	Registry *npmregistry.Client
-	Dir      string
+	results   concurrent.SharedResult[*FileMap]
+	Transport http.RoundTripper
+	Dir       string
 }
 
-// New returns a storage rooted at dir, fetching tarballs through registry.
-func New(dir string, registry *npmregistry.Client) *Storage {
-	return &Storage{Dir: dir, Registry: registry}
+// New returns a storage rooted at dir, fetching tarballs through transport.
+func New(dir string, transport http.RoundTripper) *Storage {
+	return &Storage{Dir: dir, Transport: transport}
 }
 
 // getIndexPath returns where the file map of a package is cached.
@@ -57,7 +58,11 @@ func (s *Storage) FetchArtifact(d manifest.Dist) (*FileMap, error) {
 			return fm, nil
 		}
 
-		resp, err := s.Registry.Tarball(d.Tarball)
+		req, err := http.NewRequest(http.MethodGet, d.Tarball, nil)
+		if err != nil {
+			return nil, fmt.Errorf("build tarball request for %s: %w", d.Tarball, err)
+		}
+		resp, err := httputil.CheckResponse(httputil.Do(s.Transport, req))
 		if err != nil {
 			return nil, fmt.Errorf("download tarball %s: %w", d.Tarball, err)
 		}

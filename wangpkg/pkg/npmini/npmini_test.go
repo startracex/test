@@ -18,19 +18,19 @@ cafile[]=b.pem
 `
 
 	r := strings.NewReader(data)
-	rc, err := Load(r)
+	ni, err := Load(r)
 	if err != nil {
 		t.Fatalf("Read() failed: %v", err)
 	}
 
-	if val, ok := rc.Get("registry"); !ok || val != "https://registry.npmjs.org/" {
+	if val, ok := ni.Get("registry"); !ok || val != "https://registry.npmjs.org/" {
 		t.Errorf("expected registry=https://registry.npmjs.org/, got %v %v", val, ok)
 	}
-	if val, ok := rc.Get("color"); !ok || val != "false" {
+	if val, ok := ni.Get("color"); !ok || val != "false" {
 		t.Errorf("expected color=false, got %v %v", val, ok)
 	}
 
-	cafiles := rc.GetArray("cafile")
+	cafiles := ni.GetArray("cafile")
 	expected := []string{"a.pem", "b.pem"}
 	if !reflect.DeepEqual(cafiles, expected) {
 		t.Fatalf("expected cafile=%v, got %v", expected, cafiles)
@@ -38,20 +38,20 @@ cafile[]=b.pem
 }
 
 func TestSetAndUpdate(t *testing.T) {
-	rc := New()
+	ni := New()
 
-	rc.Set("save", "true")
-	if val, ok := rc.Get("save"); !ok || val != "true" {
+	ni.Set("save", "true")
+	if val, ok := ni.Get("save"); !ok || val != "true" {
 		t.Errorf("expected save=true after Set, got %v %v", val, ok)
 	}
 
-	rc.Set("save", "false")
-	if val, _ := rc.Get("save"); val != "false" {
+	ni.Set("save", "false")
+	if val, _ := ni.Get("save"); val != "false" {
 		t.Errorf("expected save=false after update, got %s", val)
 	}
 
-	rc.SetArray("cafile", []string{"a.pem", "b.pem"})
-	cafiles := rc.GetArray("cafile")
+	ni.SetArray("cafile", []string{"a.pem", "b.pem"})
+	cafiles := ni.GetArray("cafile")
 	expected := []string{"a.pem", "b.pem"}
 	if !reflect.DeepEqual(cafiles, expected) {
 		t.Fatalf("cafile mismatch: %v", cafiles)
@@ -59,36 +59,36 @@ func TestSetAndUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	rc := New()
-	rc.Set("registry", "https://example.org/")
-	rc.SetArray("cafile", []string{"a.pem", "b.pem"})
+	ni := New()
+	ni.Set("registry", "https://example.org/")
+	ni.SetArray("cafile", []string{"a.pem", "b.pem"})
 
-	ok := rc.Delete("registry")
+	ok := ni.Delete("registry")
 	if !ok {
 		t.Errorf("expected Delete to return true")
 	}
-	if ok := rc.Delete("registry"); ok {
+	if ok := ni.Delete("registry"); ok {
 		t.Errorf("expected second Delete to return false")
 	}
-	if _, ok := rc.Get("registry"); ok {
+	if _, ok := ni.Get("registry"); ok {
 		t.Errorf("expected key 'registry' to be deleted")
 	}
-	rc.Delete("cafile")
-	if _, ok := rc.Get("cafile"); ok {
+	ni.Delete("cafile")
+	if _, ok := ni.Get("cafile"); ok {
 		t.Errorf("expected key 'cafile' to be deleted")
 	}
 }
 
 func TestOutput(t *testing.T) {
-	rc := New()
-	rc.Set("save", "true")
-	rc.Set("registry", "https://r.npmjs.org")
+	ni := New()
+	ni.Set("save", "true")
+	ni.Set("registry", "https://r.npmjs.org")
 
-	rc, _ = Load(rc.Bytes())
-	if val, _ := rc.Get("save"); val != "true" {
+	ni, _ = Load(ni.Bytes())
+	if val, _ := ni.Get("save"); val != "true" {
 		t.Errorf("expected save=true, got %s", val)
 	}
-	if val, _ := rc.Get("registry"); val != "https://r.npmjs.org" {
+	if val, _ := ni.Get("registry"); val != "https://r.npmjs.org" {
 		t.Errorf("expected registry=https://r.npmjs.org, got %s", val)
 	}
 }

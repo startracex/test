@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/gookit/color"
+	"github.com/startracex/wangpkg/pkg/auth"
 	"github.com/startracex/wangpkg/pkg/fmtutil"
 	"github.com/startracex/wangpkg/pkg/npmconfig"
-	"github.com/startracex/wangpkg/pkg/npmregistry"
 	"github.com/startracex/wangpkg/pkg/search"
 	"github.com/startracex/wangpkg/pkg/workspace"
 	"github.com/urfave/cli/v2"
@@ -47,7 +47,7 @@ func RunSearch(cwd string, p search.Parameters) error {
 	if err != nil {
 		return err
 	}
-	res, err := npmregistry.New(npmregistry.Options{NpmINI: cfg}).Search(p)
+	res, err := search.Search(p, cfg, auth.NewTransport(cfg, nil))
 	if err != nil {
 		return err
 	}

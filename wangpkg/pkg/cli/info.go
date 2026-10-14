@@ -14,8 +14,8 @@ import (
 	"github.com/startracex/wangpkg/pkg/fmtutil"
 	"github.com/startracex/wangpkg/pkg/jspath"
 	"github.com/startracex/wangpkg/pkg/manifest"
+	"github.com/startracex/wangpkg/pkg/auth"
 	"github.com/startracex/wangpkg/pkg/npmconfig"
-	"github.com/startracex/wangpkg/pkg/npmregistry"
 	"github.com/startracex/wangpkg/pkg/specifier"
 	"github.com/startracex/wangpkg/pkg/workspace"
 	"github.com/urfave/cli/v2"
@@ -64,8 +64,7 @@ func RunInfo(cwd, packageSpec, path string) error {
 	if err != nil {
 		return err
 	}
-	reg := npmregistry.New(npmregistry.Options{NpmINI: cfg})
-	d, err := reg.Document(regSpec)
+	d, err := manifest.FetchDocument(regSpec, cfg, auth.NewTransport(cfg, nil))
 	if err != nil {
 		return err
 	}

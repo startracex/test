@@ -16,18 +16,6 @@ func sampleIntegrity(t *testing.T) manifest.Integrity {
 	return integrityOf(t, "sha512", []byte("test-integrity"))
 }
 
-func TestNewStorage(t *testing.T) {
-	dir := t.TempDir()
-	s := New(dir, nil)
-
-	if s.Dir != dir {
-		t.Errorf("Dir = %q, want %q", s.Dir, dir)
-	}
-	if s.Registry != nil {
-		t.Error("Registry should be nil")
-	}
-}
-
 func TestStoragePathLayout(t *testing.T) {
 	dir := t.TempDir()
 	s := New(dir, nil)

@@ -18,7 +18,7 @@ func TestIsDistTag(t *testing.T) {
 		{name: "single letter", in: "a", want: true},
 		{name: "with dash", in: "release-candidate", want: true},
 		{name: "with underscore", in: "release_candidate", want: true},
-		{name: "with dot", in: "rc.1", want: true},
+		{name: "with dot", in: "ni.1", want: true},
 		{name: "mixed case", in: "Latest-Stable", want: true},
 
 		{name: "leading digit", in: "1.0.0", want: false},

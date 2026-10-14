@@ -4,10 +4,11 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/dgraph-io/ristretto/v2"
-	"github.com/startracex/wangpkg/pkg/auth"
 	"github.com/startracex/wangpkg/pkg/concurrent"
+	"github.com/startracex/wangpkg/pkg/httputil"
 	"github.com/startracex/wangpkg/pkg/npmini"
 	"github.com/startracex/wangpkg/pkg/specifier"
 )
@@ -59,7 +60,7 @@ func (c *DocumentCache) cancelInflight(inf *documentInflight, key string) {
 	c.inflight.Delete(key)
 }
 
-func (c *DocumentCache) FetchDocument(spec *specifier.RegistrySpecifier, rc *npmini.NpmINI, dc auth.Client) (*Document, error) {
+func (c *DocumentCache) FetchDocument(spec *specifier.RegistrySpecifier, ni *npmini.NpmINI, rt http.RoundTripper) (*Document, error) {
 	key := spec.Namespace()
 
 	// Check docCache
@@ -88,14 +89,14 @@ func (c *DocumentCache) FetchDocument(spec *specifier.RegistrySpecifier, rc *npm
 	c.inflight.Set(key, inf)
 
 	// Fetch from network
-	req, err := newDocumentRequest(spec, rc)
+	req, err := newDocumentRequest(spec, ni)
 	if err != nil {
 		err = fmt.Errorf("build document request for %s: %w", spec.Name, err)
 		inf.err = err
 		c.cancelInflight(inf, key)
 		return nil, err
 	}
-	resp, err := dc.Do(req)
+	resp, err := httputil.Do(rt, req)
 	if err != nil {
 		err = fmt.Errorf("fetch document of %s: %w", spec.Name, err)
 		inf.err = err
