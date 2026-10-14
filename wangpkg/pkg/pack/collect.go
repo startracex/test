@@ -30,6 +30,10 @@ type CollectOptions struct {
 // CollectFiles walks rootDir, honouring the ignore files it finds on the way,
 // and returns the entries that survive them.
 func CollectFiles(rootDir string, opts CollectOptions) ([]string, error) {
+	if opts.FileOnly && opts.DirOnly {
+		return nil, fmt.Errorf("FileOnly and DirOnly cannot be both true")
+	}
+
 	rootDir, err := pathutil.Abs(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("resolve absolute path: %w", err)

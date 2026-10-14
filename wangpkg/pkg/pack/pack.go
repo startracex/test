@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/startracex/wangpkg/pkg/fmtutil"
@@ -107,16 +106,10 @@ func PackName(name string) string {
 	return name
 }
 
-type Options struct {
-	Package *workspace.Package
-	Writer  *tar.Writer
-}
-
 // Init carries the settings shared by every packed package: the tarball prefix
 // and the license injected when a package ships none.
 type Init struct {
 	*workspace.Workspace
-	once        sync.Once
 	LicensePath string
 	Prefix      string
 }
@@ -129,13 +122,13 @@ func (i *Init) Create(pkg *workspace.Package, writer *tar.Writer) (err error) {
 	for rel, abs := range paths {
 		name := filepath.ToSlash(filepath.Join(prefix, rel))
 		if abs == pkg.FilePath {
-			if err := syncAndWrite(pkg, abs, name, writer); err != nil {
+			if err := writeSyncedManifest(pkg, name, writer); err != nil {
 				return fmt.Errorf("write manifest of %s: %w", pkg.Name, err)
 			}
 			continue
 		}
 
-		if err := copyAndWrite(abs, name, writer); err != nil {
+		if err := writeLocalFile(abs, name, writer); err != nil {
 			return fmt.Errorf("write %s: %w", abs, err)
 		}
 		hasLicense = hasLicense || containsFold(AlwaysInclude[1:], pathutil.TrimExt(rel))
@@ -144,7 +137,7 @@ func (i *Init) Create(pkg *workspace.Package, writer *tar.Writer) (err error) {
 		if filePath := i.LicensePath; filePath != "" {
 			fileName := filepath.Base(filePath)
 			name := filepath.ToSlash(filepath.Join(prefix, fileName))
-			if err := copyAndWrite(filePath, name, writer); err != nil {
+			if err := writeLocalFile(filePath, name, writer); err != nil {
 				return fmt.Errorf("write license %s: %w", filePath, err)
 			}
 		}
@@ -238,12 +231,11 @@ func PatternsIncludeFiles(dir string, files []string) ([]string, error) {
 	})
 }
 
-// syncAndWrite writes the manifest as it will be published, rather than the
-// file on disk.
-func syncAndWrite(pkg *workspace.Package, path, name string, writer *tar.Writer) error {
-	b, err := fmtutil.FormatJSON(path, pkg.Manifest)
+// writeSyncedManifest writes the synced manifest into the tarball.
+func writeSyncedManifest(pkg *workspace.Package, name string, writer *tar.Writer) error {
+	b, err := fmtutil.FormatJSON(pkg.FilePath, pkg.Manifest)
 	if err != nil {
-		return fmt.Errorf("format manifest %s: %w", path, err)
+		return fmt.Errorf("format manifest %s: %w", pkg.FilePath, err)
 	}
 	i, err := os.Stat(pkg.FilePath)
 	if err != nil {
@@ -268,8 +260,8 @@ func syncAndWrite(pkg *workspace.Package, path, name string, writer *tar.Writer)
 	return nil
 }
 
-// copyAndWrite copies a file into the tarball.
-func copyAndWrite(path, name string, writer *tar.Writer) error {
+// writeLocalFile copies a file into the tarball.
+func writeLocalFile(path, name string, writer *tar.Writer) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("stat %s: %w", path, err)
