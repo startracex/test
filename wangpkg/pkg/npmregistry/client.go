@@ -49,8 +49,10 @@ func newClient(opts Options) *authClient {
 		return nil, err
 	}
 
+	retryRT := &retryablehttp.RoundTripper{Client: attempts}
+
 	c := &http.Client{
-		Transport:     &retryablehttp.RoundTripper{Client: attempts},
+		Transport:     retryRT,
 		Timeout:       opts.HTTPClient.Timeout,
 		Jar:           opts.HTTPClient.Jar,
 		CheckRedirect: opts.HTTPClient.CheckRedirect,
