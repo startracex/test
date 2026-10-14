@@ -3,10 +3,12 @@
 package httputil
 
 import (
+	"bytes"
 	"encoding/json/v2"
 	"fmt"
 	"io"
 	"net/http"
+	"net/textproto"
 	"strings"
 )
 
@@ -16,8 +18,7 @@ func Do(rt http.RoundTripper, req *http.Request) (*http.Response, error) {
 	return (&http.Client{Transport: rt}).Do(req)
 }
 
-// CheckResponse turns a non-2xx response into an error carrying the body of the
-// response.
+// CheckResponse turns a non-2xx response into an error carrying the body of the response.
 func CheckResponse(resp *http.Response, err error) (*http.Response, error) {
 	if err != nil {
 		return nil, err
@@ -48,4 +49,42 @@ func DecodeJSON[T any](resp *http.Response, err error) (T, error) {
 		return zero, fmt.Errorf("decode response from %s: %w", resp.Request.URL, err)
 	}
 	return v, nil
+}
+
+// WriteRequest formats request to writer.
+func WriteRequest(req *http.Request, w io.Writer) error {
+	if _, err := fmt.Fprintf(w, "%s %s %s\r\n",
+		req.Method,
+		req.URL.RequestURI(),
+		req.Proto,
+	); err != nil {
+		return err
+	}
+
+	for k, vv := range req.Header {
+		k = textproto.CanonicalMIMEHeaderKey(k)
+		for _, v := range vv {
+			if _, err := fmt.Fprintf(w, "%s: %s\r\n", k, v); err != nil {
+				return err
+			}
+		}
+	}
+
+	if _, err := w.Write([]byte("\r\n")); err != nil {
+		return err
+	}
+
+	if req.Body != nil {
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err != nil {
+			return err
+		}
+		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+		if _, err := w.Write(bodyBytes); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
