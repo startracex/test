@@ -4,29 +4,29 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/startracex/wangpkg/internal/cmd"
+	"github.com/startracex/wangpkg/pkg/cli"
 	"github.com/startracex/wangpkg/pkg/constants"
-	"github.com/urfave/cli/v2"
+	urfave "github.com/urfave/cli/v2"
 )
 
 func main() {
-	app := &cli.App{
+	app := &urfave.App{
 		Name:    constants.AppName,
 		Version: constants.Version,
-		Commands: []*cli.Command{
-			cmd.InitCommand,
-			cmd.ListCommand,
-			cmd.ConfigCommand,
-			cmd.PackCommand,
-			cmd.PublishCommand,
-			cmd.DlxCommand,
-			cmd.CreateCommand,
-			cmd.RunCommand,
-			cmd.ExecuteCommand,
-			cmd.RemoveCommand,
-			cmd.InstallCommand,
-			cmd.SearchCommand,
-			cmd.InfoCommand,
+		Commands: []*urfave.Command{
+			cli.InitCommand,
+			cli.ListCommand,
+			cli.ConfigCommand,
+			cli.PackCommand,
+			cli.PublishCommand,
+			cli.DlxCommand,
+			cli.CreateCommand,
+			cli.RunCommand,
+			cli.ExecuteCommand,
+			cli.RemoveCommand,
+			cli.InstallCommand,
+			cli.SearchCommand,
+			cli.InfoCommand,
 		},
 	}
 	if err := app.Run(os.Args); err != nil {
