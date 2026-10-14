@@ -159,21 +159,29 @@ func (i *Installer) writeBins(results map[*workspace.Package]map[string]*Install
 
 // createLinks creates every symlink collected during installation.
 func (i *Installer) createLinks(results map[*workspace.Package]map[string]*InstallResult) error {
-	eg := &concurrent.ErrGroup{Weighted: i.Weighted}
+	links := make(map[string]Link)
 	for _, irs := range results {
 		for _, ir := range irs {
-			eg.Add(func() error {
-				for _, request := range ir.Links {
-					if err := os.MkdirAll(filepath.Dir(request.Target), 0777); err != nil {
-						return fmt.Errorf("link %s to %s: %w", request.Source, request.Target, err)
-					}
-					if err := osutil.Symlink(request.Source, request.Target); err != nil {
-						return fmt.Errorf("link %s to %s: %w", request.Source, request.Target, err)
-					}
+			for _, request := range ir.Links {
+				if existing, ok := links[request.Target]; ok && existing.Source != request.Source {
+					continue
 				}
-				return nil
-			})
+				links[request.Target] = request
+			}
 		}
+	}
+
+	eg := &concurrent.ErrGroup{Weighted: i.Weighted}
+	for _, request := range links {
+		eg.Add(func() error {
+			if err := os.MkdirAll(filepath.Dir(request.Target), 0777); err != nil {
+				return fmt.Errorf("link %s to %s: %w", request.Source, request.Target, err)
+			}
+			if err := osutil.Symlink(request.Source, request.Target); err != nil {
+				return fmt.Errorf("link %s to %s: %w", request.Source, request.Target, err)
+			}
+			return nil
+		})
 	}
 	return eg.Wait()
 }
