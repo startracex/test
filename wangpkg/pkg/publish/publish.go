@@ -5,6 +5,7 @@
 package publish
 
 import (
+	"bytes"
 	"encoding/json/v2"
 	"fmt"
 	"io"
@@ -127,10 +128,6 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 				"predicateType":  slsaV1,
 			},
 		}
-		// The provenance bundle is uploaded as the raw JSON string, not base64:
-		// npm only base64-encodes the tarball (libnpmpublish uses
-		// data: serializedBundle). Sending base64 makes the registry fail to
-		// parse the bundle and answer with a server error.
 		attachments[provenanceBundleName] = Attachment{
 			ContentType: sigstoreContentType,
 			Data:        string(bunJSON),
@@ -138,9 +135,6 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 		}
 	}
 
-	// The version document's _id is name@version, but the top-level _id of the
-	// publish body must be the bare package name (libnpmpublish: root._id =
-	// manifest.name). Using name@version makes the registry reject the publish.
 	id := opts.Name + "@" + opts.Version
 	obj := opts.Object.Clone()
 	obj.Set("_id", id)
@@ -352,11 +346,11 @@ func (opts Options) buildProvenanceStatement(sr sumResult, startedOn time.Time) 
 }
 
 func (opts Options) doPublish(body PublishBody) error {
-	bodyJSON, err := json.Marshal(body)
-	if err != nil {
+	out := new(bytes.Buffer)
+	if err := json.MarshalWrite(out, body); err != nil {
 		return err
 	}
-	return opts.Client.Publish(opts.Name, bodyJSON)
+	return opts.Client.Publish(opts.Name, out)
 }
 
 func (opts Options) getOIDCToken() (string, error) {

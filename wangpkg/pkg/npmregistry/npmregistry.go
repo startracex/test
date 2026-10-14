@@ -1,13 +1,11 @@
 package npmregistry
 
 import (
-	"bytes"
 	"encoding/json/v2"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -57,20 +55,7 @@ func (c *Client) Document(spec *specifier.RegistrySpecifier) (*manifest.Document
 	if err != nil {
 		return nil, fmt.Errorf("build document request for %s: %w", spec.Name, err)
 	}
-	return c.decodeJSON[*manifest.Document](c.a.Do(req))
-}
-
-// Manifest resolves one version, or the version a dist-tag points at.
-func (c *Client) Manifest(spec *specifier.RegistrySpecifier, versionOrTag string) (*manifest.Manifest, error) {
-	doc, err := c.Document(spec)
-	if err != nil {
-		return nil, err
-	}
-	m, err := doc.Resolve(versionOrTag)
-	if err != nil {
-		return nil, fmt.Errorf("resolve %s@%s: %w", spec.Name, versionOrTag, err)
-	}
-	return m, nil
+	return decodeJSON[*manifest.Document](c.a.Do(req))
 }
 
 // Search queries the registry search endpoint.
@@ -85,7 +70,7 @@ func (c *Client) Search(p search.Parameters) (*search.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build search request: %w", err)
 	}
-	return c.decodeJSON[*search.Response](c.a.Do(req))
+	return decodeJSON[*search.Response](c.a.Do(req))
 }
 
 // Tarball downloads a package tarball from an absolute URL.
@@ -94,22 +79,20 @@ func (c *Client) Tarball(rawURL string) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build tarball request for %s: %w", rawURL, err)
 	}
-	return c.checkResponse(c.a.Do(req))
+	return checkResponse(c.a.Do(req))
 }
 
 // Publish uploads one version of a package to the registry.
-func (c *Client) Publish(name string, body []byte) error {
+func (c *Client) Publish(name string, body io.Reader) error {
 	reg, err := c.n.GetRegistry(name)
 	if err != nil {
 		return fmt.Errorf("resolve registry for %s: %w", name, err)
 	}
-	req, err := http.NewRequest(http.MethodPut, reg.JoinPath(url.PathEscape(name)).String(), bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPut, reg.JoinPath(url.PathEscape(name)).String(), body)
 	if err != nil {
 		return fmt.Errorf("build publish request for %s: %w", name, err)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Content-Length", strconv.Itoa(len(body)))
-	resp, err := c.checkResponse(c.a.Do(req))
+	resp, err := checkResponse(c.a.Do(req))
 	if err != nil {
 		return fmt.Errorf("publish %s: %w", name, err)
 	}
@@ -127,7 +110,7 @@ func (c *Client) Visibility(name string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("build visibility request for %s: %w", name, err)
 	}
-	result, err := c.decodeJSON[struct {
+	result, err := decodeJSON[struct {
 		Public bool `json:"public"`
 	}](c.a.Do(req))
 	if err != nil {
@@ -155,7 +138,8 @@ func (c *Client) Published(name, version string) (bool, error) {
 	return resp.StatusCode >= 200 && resp.StatusCode < 300, nil
 }
 
-func (c *Client) checkResponse(resp *http.Response, err error) (*http.Response, error) {
+// checkResponse turns a non-2xx response into an error carrying the registry's response body.
+func checkResponse(resp *http.Response, err error) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
@@ -172,9 +156,10 @@ func (c *Client) checkResponse(resp *http.Response, err error) (*http.Response, 
 	return resp, nil
 }
 
-func (c *Client) decodeJSON[T any](resp *http.Response, err error) (T, error) {
+// decodeJSON checks the response and decodes its JSON body into T.
+func decodeJSON[T any](resp *http.Response, err error) (T, error) {
 	var zero T
-	resp, err = c.checkResponse(resp, err)
+	resp, err = checkResponse(resp, err)
 	if err != nil {
 		return zero, err
 	}
