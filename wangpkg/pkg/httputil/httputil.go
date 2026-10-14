@@ -3,12 +3,11 @@
 package httputil
 
 import (
-	"bytes"
 	"encoding/json/v2"
 	"fmt"
 	"io"
 	"net/http"
-	"net/textproto"
+	"sort"
 	"strings"
 )
 
@@ -61,9 +60,13 @@ func WriteRequest(req *http.Request, w io.Writer) error {
 		return err
 	}
 
-	for k, vv := range req.Header {
-		k = textproto.CanonicalMIMEHeaderKey(k)
-		for _, v := range vv {
+	keys := make([]string, 0, len(req.Header))
+	for k := range req.Header {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		for _, v := range req.Header[k] {
 			if _, err := fmt.Fprintf(w, "%s: %s\r\n", k, v); err != nil {
 				return err
 			}
@@ -74,14 +77,13 @@ func WriteRequest(req *http.Request, w io.Writer) error {
 		return err
 	}
 
-	if req.Body != nil {
-		bodyBytes, err := io.ReadAll(req.Body)
+	if req.GetBody != nil {
+		bodyRc, err := req.GetBody()
 		if err != nil {
 			return err
 		}
-		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-
-		if _, err := w.Write(bodyBytes); err != nil {
+		defer bodyRc.Close()
+		if _, err := io.Copy(w, bodyRc); err != nil {
 			return err
 		}
 	}
