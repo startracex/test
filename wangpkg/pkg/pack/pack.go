@@ -63,7 +63,6 @@ var DefaultIgnore = []string{
 	`wangpkg.lock`,
 }
 
-// containsFold reports whether t is in s, ignoring case.
 func containsFold(s []string, t string) bool {
 	for _, v := range s {
 		if strings.EqualFold(v, t) {
@@ -73,8 +72,7 @@ func containsFold(s []string, t string) bool {
 	return false
 }
 
-// FindSimilarFiles returns a file in dir whose name matches one of names,
-// ignoring case; extension-less matches are preferred last.
+// FindSimilarFiles returns a file in dir whose name matches one of names.
 func FindSimilarFiles(dir string, names []string) (string, error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -96,8 +94,6 @@ func FindSimilarFiles(dir string, names []string) (string, error) {
 	return found, nil
 }
 
-// PackName turns a package name into its tarball base name, replacing the
-// scope separator so the name stays a single path segment.
 func PackName(name string) string {
 	reg := &specifier.RegistrySpecifier{Name: name}
 	if scope, base := reg.SplitName(); scope != "" {
@@ -106,8 +102,6 @@ func PackName(name string) string {
 	return name
 }
 
-// Init carries the settings shared by every packed package: the tarball prefix
-// and the license injected when a package ships none.
 type Init struct {
 	*workspace.Workspace
 	LicensePath string
@@ -148,8 +142,7 @@ func (i *Init) Create(pkg *workspace.Package, writer *tar.Writer) (err error) {
 	return nil
 }
 
-// IncludeFileMap returns the files to pack, keyed by their path relative to the
-// package directory.
+// IncludeFileMap returns the files to pack, keyed by their path relative to the package directory.
 func IncludeFileMap(pkg *workspace.Package) (map[string]string, error) {
 	mustIncludes, err := MustIncludeFiles(pkg)
 	if err != nil {
@@ -182,8 +175,7 @@ func IncludeFileMap(pkg *workspace.Package) (map[string]string, error) {
 	return result, nil
 }
 
-// MustIncludeFiles returns the files npm always ships: the manifest, README and
-// license, every bin, and the main entry.
+// MustIncludeFiles returns the files npm always ships.
 func MustIncludeFiles(pkg *workspace.Package) ([]string, error) {
 	result := []string{pkg.FilePath}
 	files, err := os.ReadDir(pkg.Dir)
