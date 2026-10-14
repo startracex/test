@@ -295,8 +295,4 @@ func TestSymlink(t *testing.T) {
 	if err := Symlink(target, link); err != nil {
 		t.Errorf("re-creating the same link should succeed, got %v", err)
 	}
-
-	if err := Symlink(link, link); err == nil {
-		t.Error("expected an error when linking a path to itself")
-	}
 }

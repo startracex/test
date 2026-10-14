@@ -3,15 +3,13 @@ package osutil
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
+	"io/fs"
 	"os"
-	"path/filepath"
 	"runtime"
 	"syscall"
 
 	junction "github.com/nyaosorg/go-windows-junction"
-	"github.com/startracex/wangpkg/pkg/pathutil"
 )
 
 func CaseInsensitive() bool {
@@ -19,7 +17,7 @@ func CaseInsensitive() bool {
 }
 
 func RemoveIfExist(path string) error {
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 	return nil
@@ -28,7 +26,7 @@ func RemoveIfExist(path string) error {
 func RemoveDirIfEmpty(path string) error {
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
 		return err
@@ -89,42 +87,28 @@ func MoveFile(src, dst string) error {
 	return os.Remove(src)
 }
 
-func Symlink(oldname, newname string) error {
-	newAbs, err := pathutil.Abs(newname)
-	if err != nil {
-		return err
-	}
-	oldAbs, err := pathutil.Abs(oldname)
+func Symlink(oldpath, newpath string) error {
+	oldStat, err := os.Stat(oldpath)
 	if err != nil {
 		return err
 	}
 
-	if pathutil.Equals(oldAbs, newAbs) {
-		return fmt.Errorf("cannot create symlink from %s to itself", newname)
-	}
-
-	if _, err := os.Lstat(newAbs); err == nil {
-		if link, readErr := os.Readlink(newAbs); readErr == nil {
-			var linkAbs string
-			if filepath.IsAbs(link) {
-				linkAbs = filepath.Clean(link)
-			} else {
-				linkAbs = filepath.Join(filepath.Dir(newAbs), link)
-			}
-			if pathutil.Equals(oldAbs, linkAbs) {
-				return nil
-			}
-			if err := os.Remove(newAbs); err != nil {
-				return err
-			}
-		} else if !os.IsNotExist(readErr) {
-			if err := os.Remove(newAbs); err != nil {
-				return err
-			}
+	if newInfo, err := os.Lstat(newpath); err == nil {
+		same := false
+		if newInfo.Mode()&os.ModeSymlink == 0 {
+			same = os.SameFile(newInfo, oldStat)
+		} else if cur, err := os.Stat(newpath); err == nil {
+			same = os.SameFile(cur, oldStat)
 		}
-	} else if !os.IsNotExist(err) {
+		if same {
+			return nil
+		}
+		if err := os.RemoveAll(newpath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 
-	return junction.Create(oldAbs, newAbs)
+	return junction.Create(oldpath, newpath)
 }
