@@ -12,7 +12,7 @@ import (
 )
 
 func getBinPath(s string) string {
-	return filepath.Join(s, constants.ModulesDirName, constants.BinDirName)
+	return filepath.Join(s, constants.ModulesDirName, ".bin")
 }
 
 func WriteBin(pkgDir, distPath string, binMap map[string]string) error {

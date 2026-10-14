@@ -6,5 +6,4 @@ const (
 	UserConfigDirName   = "." + AppName
 	ModulesStoreDirName = "." + AppName
 	ModulesDirName      = "node_modules"
-	BinDirName          = ".bin"
 )
